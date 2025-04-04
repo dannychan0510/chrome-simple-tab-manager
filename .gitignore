@@ -1,0 +1,30 @@
+# Start Generation Here
+# Chrome extension files
+*.crx
+*.user.js
+*.user.css
+
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE specific files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Other
+.DS_Store
+Thumbs.db
+# End Generation Here
