@@ -21,41 +21,47 @@ async function groupAllTabs(targetWindowId) {
     }
   }
   
-  // Move all tabs from other windows to the target window
-  for (const window of windows) {
-    if (window.id !== targetWindowId) {
-      const tabs = window.tabs;
-      
-      // First, move pinned tabs to preserve their order
-      const pinnedTabs = tabs.filter(tab => tab.pinned);
-      for (let i = 0; i < pinnedTabs.length; i++) {
-        const tab = pinnedTabs[i];
-        // Find the position of this tab in the allPinnedTabs array
-        const targetIndex = allPinnedTabs.findIndex(t => t.id === tab.id);
-        if (targetIndex !== -1) {
-          // First move the tab
-          await chrome.tabs.move(tab.id, {
-            windowId: targetWindowId,
-            index: targetIndex // Place at the correct position
-          });
-          // Then ensure it's pinned
-          await chrome.tabs.update(tab.id, { pinned: true });
-        }
-      }
-      
-      // Then move unpinned tabs
-      const unpinnedTabs = tabs.filter(tab => !tab.pinned);
-      for (const tab of unpinnedTabs) {
+  // Collect all windows that need to be processed (excluding target window)
+  const windowsToProcess = windows.filter(w => w.id !== targetWindowId);
+  
+  // Process each window separately
+  for (const window of windowsToProcess) {
+    const tabs = window.tabs;
+    
+    // First, move pinned tabs to preserve their order
+    const pinnedTabs = tabs.filter(tab => tab.pinned);
+    for (let i = 0; i < pinnedTabs.length; i++) {
+      const tab = pinnedTabs[i];
+      // Find the position of this tab in the allPinnedTabs array
+      const targetIndex = allPinnedTabs.findIndex(t => t.id === tab.id);
+      if (targetIndex !== -1) {
+        // First move the tab
         await chrome.tabs.move(tab.id, {
           windowId: targetWindowId,
-          index: -1 // Add to the end
+          index: targetIndex // Place at the correct position
         });
+        // Then ensure it's pinned
+        await chrome.tabs.update(tab.id, { pinned: true });
       }
-      
-      // Close the empty window
-      await chrome.windows.remove(window.id);
+    }
+    
+    // Then move unpinned tabs
+    const unpinnedTabs = tabs.filter(tab => !tab.pinned);
+    for (const tab of unpinnedTabs) {
+      await chrome.tabs.move(tab.id, {
+        windowId: targetWindowId,
+        index: -1 // Add to the end
+      });
     }
   }
+  
+  // After all tabs are moved, close the empty windows
+  for (const window of windowsToProcess) {
+    await chrome.windows.remove(window.id);
+  }
+  
+  // Return true to indicate success
+  return true;
 }
 
 // Function to sort tabs by domain and title
@@ -91,7 +97,9 @@ async function sortTabs(preservePinned = false) {
     }
   } else {
     // Sort all tabs together
-    const allTabs = [...pinnedTabs, ...unpinnedTabs];
+    const allTabs = [...tabs]; // Create a copy of all tabs
+    
+    // Sort all tabs by domain and title
     allTabs.sort((a, b) => {
       const domainA = new URL(a.url).hostname;
       const domainB = new URL(b.url).hostname;
@@ -104,9 +112,22 @@ async function sortTabs(preservePinned = false) {
     
     // Move all tabs to their new positions
     for (let i = 0; i < allTabs.length; i++) {
+      // First move the tab
       await chrome.tabs.move(allTabs[i].id, { index: i });
+      
+      // If preservePinned is false, we need to ensure the pinned state is correct
+      // based on the new position
+      if (!preservePinned) {
+        // If the tab was pinned, keep it pinned
+        if (allTabs[i].pinned) {
+          await chrome.tabs.update(allTabs[i].id, { pinned: true });
+        }
+      }
     }
   }
+  
+  // Return true to indicate success
+  return true;
 }
 
 // Function to remove duplicate tabs
@@ -122,19 +143,50 @@ async function removeDuplicateTabs() {
       seenUrls.add(tab.url);
     }
   }
+  
+  // Return true to indicate success
+  return true;
 }
 
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  switch (request.action) {
-    case 'groupTabs':
-      groupAllTabs(request.targetWindowId);
-      break;
-    case 'sortTabs':
-      sortTabs(request.preservePinned);
-      break;
-    case 'removeDuplicates':
-      removeDuplicateTabs();
-      break;
+  console.log('Received message:', request.action);
+  
+  // Handle each action asynchronously
+  if (request.action === 'groupTabs') {
+    groupAllTabs(request.targetWindowId)
+      .then(success => {
+        console.log('Group tabs completed with success:', success);
+        sendResponse({ success });
+      })
+      .catch(error => {
+        console.error('Error in groupTabs:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Indicates we'll respond asynchronously
+  } 
+  else if (request.action === 'sortTabs') {
+    sortTabs(request.preservePinned)
+      .then(success => {
+        console.log('Sort tabs completed with success:', success);
+        sendResponse({ success });
+      })
+      .catch(error => {
+        console.error('Error in sortTabs:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
+  } 
+  else if (request.action === 'removeDuplicates') {
+    removeDuplicateTabs()
+      .then(success => {
+        console.log('Remove duplicates completed with success:', success);
+        sendResponse({ success });
+      })
+      .catch(error => {
+        console.error('Error in removeDuplicates:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
   }
 }); 

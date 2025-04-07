@@ -1,4 +1,4 @@
-#!/Users/dannychan/Documents/Projects/chrome-tab-sorter/.venv/bin/python3
+#!/Users/dannychan/Documents/Projects/chrome-tab-sorter/.venv/bin/python3.13
 # -*- coding: utf-8 -*-
 import re
 import sys
