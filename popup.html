@@ -2,21 +2,44 @@
 <html>
 <head>
   <title>Tab Manager</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
 <body>
   <div class="container">
     <h1>Tab Manager</h1>
-    <button id="cleanTabs">Clean Tabs</button>
-    <button id="groupTabs">Group All Tabs</button>
-    <button id="removeDuplicates">Remove Duplicates</button>
-    <button id="sortTabs">Sort Tabs</button>
+    <button id="cleanTabs" class="action-button">
+      <span class="material-icons">cleaning_services</span>
+      Clean Tabs
+    </button>
+    <button id="groupTabs" class="action-button">
+      <span class="material-icons">merge_type</span>
+      Group All Tabs
+    </button>
+    <button id="removeDuplicates" class="action-button">
+      <span class="material-icons">filter_alt</span>
+      Remove Duplicates
+    </button>
+    <button id="sortTabs" class="action-button">
+      <span class="material-icons">sort</span>
+      Sort Tabs
+    </button>
+    <button id="groupByDomain" class="action-button">
+      <span class="material-icons">folder</span>
+      Group by Domain
+    </button>
+    <button id="closeBlankTabs" class="action-button">
+      <span class="material-icons">delete_outline</span>
+      Close Blank Tabs
+    </button>
+    <div class="divider"></div>
     <div class="toggle-container">
       <label class="toggle">
         <input type="checkbox" id="preservePinned">
         <span class="toggle-label">Preserve pinned tabs order</span>
       </label>
     </div>
+    <div id="statusMessage" class="status"></div>
   </div>
   <script src="popup.js"></script>
 </body>

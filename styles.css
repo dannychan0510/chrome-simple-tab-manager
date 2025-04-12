@@ -31,6 +31,11 @@ button:hover {
   background-color: #3367d6;
 }
 
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
 .toggle-container {
   display: flex;
   align-items: center;
@@ -79,4 +84,60 @@ button:hover {
 .toggle-label {
   font-size: 14px;
   color: #333;
+}
+
+.status {
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  text-align: center;
+  min-height: 20px;
+  transition: all 0.3s ease;
+}
+
+.status.success {
+  background-color: #e6f4ea;
+  color: #137333;
+  border: 1px solid #137333;
+}
+
+.status.error {
+  background-color: #fce8e6;
+  color: #d93025;
+  border: 1px solid #d93025;
+}
+
+.status.processing {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+  border: 1px solid #1a73e8;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4285f4;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.action-button:hover {
+  background-color: #3367d6;
+}
+
+.action-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.action-button .material-icons {
+  font-size: 20px;
 } 

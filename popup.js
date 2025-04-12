@@ -1,5 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
   const preservePinnedToggle = document.getElementById('preservePinned');
+  const statusMessage = document.getElementById('statusMessage');
+  const buttons = {
+    cleanTabs: document.getElementById('cleanTabs'),
+    groupTabs: document.getElementById('groupTabs'),
+    removeDuplicates: document.getElementById('removeDuplicates'),
+    sortTabs: document.getElementById('sortTabs'),
+    groupByDomain: document.getElementById('groupByDomain'),
+    closeBlankTabs: document.getElementById('closeBlankTabs')
+  };
   
   // Load saved state
   chrome.storage.sync.get(['preservePinned'], (result) => {
@@ -11,110 +20,153 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.sync.set({ preservePinned: preservePinnedToggle.checked });
   });
 
+  /**
+   * Displays a status message in the popup UI.
+   * @param {string} message - The message to display
+   * @param {string} type - The type of message ('success', 'error', or 'processing')
+   */
+  function displayStatus(message, type = 'processing') {
+    statusMessage.textContent = message;
+    statusMessage.className = 'status ' + type;
+  }
+
+  /**
+   * Disables or enables all action buttons in the popup.
+   * @param {boolean} disabled - Whether to disable the buttons
+   */
+  function setButtonsEnabled(enabled) {
+    Object.values(buttons).forEach(button => {
+      button.disabled = !enabled;
+    });
+    preservePinnedToggle.disabled = !enabled;
+  }
+
+  /**
+   * Handles the response from a background operation.
+   * @param {Object} response - The response from the background script
+   * @param {boolean} response.success - Whether the operation was successful
+   * @param {string} [response.error] - Error message if the operation failed
+   */
+  function handleResponse(response, successMessage) {
+    if (response && response.success) {
+      displayStatus(successMessage, 'success');
+      console.log(successMessage);
+    } else {
+      const errorMessage = response?.error || 'Unknown error';
+      displayStatus(`Error: ${errorMessage}`, 'error');
+      console.error('Operation failed:', errorMessage);
+    }
+    setButtonsEnabled(true);
+  }
+
   // Add click handlers for each button
-  document.getElementById('cleanTabs').addEventListener('click', async () => {
+  buttons.cleanTabs.addEventListener('click', async () => {
     try {
+      setButtonsEnabled(false);
+      displayStatus('Cleaning tabs...', 'processing');
+      
       // Get the current window ID
       const currentWindow = await chrome.windows.getCurrent();
       const targetWindowId = currentWindow.id;
       
-      // Step 1: Group all tabs
-      console.log('Step 1: Grouping tabs');
+      // Send a single message to execute the entire sequence
       await new Promise((resolve) => {
         chrome.runtime.sendMessage({ 
-          action: 'groupTabs',
-          targetWindowId: targetWindowId
-        }, (response) => {
-          if (response && response.success) {
-            console.log('Group tabs operation completed successfully');
-            resolve();
-          } else {
-            console.error('Group tabs operation failed');
-            resolve(); // Continue anyway
-          }
-        });
-      });
-      
-      // Wait for a moment to ensure grouping is complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Step 2: Remove duplicates
-      console.log('Step 2: Removing duplicates');
-      await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ 
-          action: 'removeDuplicates'
-        }, (response) => {
-          if (response && response.success) {
-            console.log('Remove duplicates operation completed successfully');
-            resolve();
-          } else {
-            console.error('Remove duplicates operation failed');
-            resolve(); // Continue anyway
-          }
-        });
-      });
-      
-      // Wait for a moment to ensure duplicates are removed
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Step 3: Sort tabs
-      console.log('Step 3: Sorting tabs');
-      await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ 
-          action: 'sortTabs',
+          action: 'cleanTabsSequence',
+          targetWindowId: targetWindowId,
           preservePinned: preservePinnedToggle.checked
         }, (response) => {
-          if (response && response.success) {
-            console.log('Sort tabs operation completed successfully');
-            resolve();
-          } else {
-            console.error('Sort tabs operation failed');
-            resolve(); // Continue anyway
-          }
+          handleResponse(response, 'Tabs cleaned successfully!');
+          resolve();
         });
       });
-      
-      console.log('All operations completed successfully');
     } catch (error) {
+      displayStatus(`Error: ${error.message}`, 'error');
       console.error('Error in cleanTabs operation:', error);
+      setButtonsEnabled(true);
     }
   });
 
-  document.getElementById('groupTabs').addEventListener('click', async () => {
-    // Get the current window ID
-    const currentWindow = await chrome.windows.getCurrent();
-    chrome.runtime.sendMessage({ 
-      action: 'groupTabs',
-      targetWindowId: currentWindow.id
-    }, (response) => {
-      if (response && response.success) {
-        console.log('Group tabs operation completed successfully');
-      } else {
-        console.error('Group tabs operation failed');
-      }
-    });
+  buttons.groupTabs.addEventListener('click', async () => {
+    try {
+      setButtonsEnabled(false);
+      displayStatus('Grouping tabs...', 'processing');
+      
+      // Get the current window ID
+      const currentWindow = await chrome.windows.getCurrent();
+      chrome.runtime.sendMessage({ 
+        action: 'groupTabs',
+        targetWindowId: currentWindow.id
+      }, (response) => {
+        handleResponse(response, 'Tabs grouped successfully!');
+      });
+    } catch (error) {
+      displayStatus(`Error: ${error.message}`, 'error');
+      console.error('Error in groupTabs operation:', error);
+      setButtonsEnabled(true);
+    }
   });
 
-  document.getElementById('removeDuplicates').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'removeDuplicates' }, (response) => {
-      if (response && response.success) {
-        console.log('Remove duplicates operation completed successfully');
-      } else {
-        console.error('Remove duplicates operation failed');
-      }
-    });
+  buttons.removeDuplicates.addEventListener('click', () => {
+    try {
+      setButtonsEnabled(false);
+      displayStatus('Removing duplicates...', 'processing');
+      
+      chrome.runtime.sendMessage({ action: 'removeDuplicates' }, (response) => {
+        handleResponse(response, 'Duplicates removed successfully!');
+      });
+    } catch (error) {
+      displayStatus(`Error: ${error.message}`, 'error');
+      console.error('Error in removeDuplicates operation:', error);
+      setButtonsEnabled(true);
+    }
   });
 
-  document.getElementById('sortTabs').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ 
-      action: 'sortTabs',
-      preservePinned: preservePinnedToggle.checked
-    }, (response) => {
-      if (response && response.success) {
-        console.log('Sort tabs operation completed successfully');
-      } else {
-        console.error('Sort tabs operation failed');
-      }
-    });
+  buttons.sortTabs.addEventListener('click', () => {
+    try {
+      setButtonsEnabled(false);
+      displayStatus('Sorting tabs...', 'processing');
+      
+      chrome.runtime.sendMessage({ 
+        action: 'sortTabs',
+        preservePinned: preservePinnedToggle.checked
+      }, (response) => {
+        handleResponse(response, 'Tabs sorted successfully!');
+      });
+    } catch (error) {
+      displayStatus(`Error: ${error.message}`, 'error');
+      console.error('Error in sortTabs operation:', error);
+      setButtonsEnabled(true);
+    }
+  });
+
+  buttons.groupByDomain.addEventListener('click', () => {
+    try {
+      setButtonsEnabled(false);
+      displayStatus('Grouping tabs by domain...', 'processing');
+      
+      chrome.runtime.sendMessage({ action: 'groupByDomain' }, (response) => {
+        handleResponse(response, 'Tabs grouped by domain successfully!');
+      });
+    } catch (error) {
+      displayStatus(`Error: ${error.message}`, 'error');
+      console.error('Error in groupByDomain operation:', error);
+      setButtonsEnabled(true);
+    }
+  });
+
+  buttons.closeBlankTabs.addEventListener('click', () => {
+    try {
+      setButtonsEnabled(false);
+      displayStatus('Closing blank tabs...', 'processing');
+      
+      chrome.runtime.sendMessage({ action: 'closeBlankTabs' }, (response) => {
+        handleResponse(response, 'Blank tabs closed successfully!');
+      });
+    } catch (error) {
+      displayStatus(`Error: ${error.message}`, 'error');
+      console.error('Error in closeBlankTabs operation:', error);
+      setButtonsEnabled(true);
+    }
   });
 }); 
