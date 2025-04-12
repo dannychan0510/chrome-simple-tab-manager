@@ -1,3 +1,81 @@
+// Add command listener for keyboard shortcuts
+chrome.commands.onCommand.addListener(async (command) => {
+  try {
+    // Get settings from storage
+    const settings = await chrome.storage.sync.get(['preservePinned']);
+    const preservePinned = settings.preservePinned ?? false;
+    
+    // Handle different commands
+    switch (command) {
+      case "execute_clean_tabs":
+        try {
+          const currentWindow = await chrome.windows.getCurrent();
+          await groupAllTabs(currentWindow.id);
+          await sortTabs(preservePinned);
+          await removeDuplicateTabs();
+          console.log('Clean Tabs command executed successfully.');
+        } catch (error) {
+          console.error('Error executing Clean Tabs command:', error);
+        }
+        break;
+        
+      case "execute_group_all_tabs":
+        try {
+          const currentWindow = await chrome.windows.getCurrent();
+          await groupAllTabs(currentWindow.id);
+          console.log('Group All Tabs command executed successfully.');
+        } catch (error) {
+          console.error('Error executing Group All Tabs command:', error);
+        }
+        break;
+        
+      case "execute_remove_duplicates":
+        try {
+          await removeDuplicateTabs();
+          console.log('Remove Duplicates command executed successfully.');
+        } catch (error) {
+          console.error('Error executing Remove Duplicates command:', error);
+        }
+        break;
+        
+      case "execute_sort_tabs":
+        try {
+          await sortTabs(preservePinned);
+          console.log('Sort Tabs command executed successfully.');
+        } catch (error) {
+          console.error('Error executing Sort Tabs command:', error);
+        }
+        break;
+        
+      case "execute_group_by_domain":
+        try {
+          await groupTabsByDomain();
+          console.log('Group by Domain command executed successfully.');
+          console.log('Note: This command no longer has a default keyboard shortcut due to Chrome\'s 4-shortcut limit. You can still use it from the extension popup.');
+        } catch (error) {
+          console.error('Error executing Group by Domain command:', error);
+        }
+        break;
+        
+      case "execute_close_blank_tabs":
+        try {
+          await closeBlankTabs();
+          console.log('Close Blank Tabs command executed successfully.');
+          console.log('Note: This command no longer has a default keyboard shortcut due to Chrome\'s 4-shortcut limit. You can still use it from the extension popup.');
+        } catch (error) {
+          console.error('Error executing Close Blank Tabs command:', error);
+        }
+        break;
+        
+      default:
+        console.error('Unrecognized command:', command);
+        break;
+    }
+  } catch (error) {
+    console.error('Error in command handler:', error);
+  }
+});
+
 /**
  * Groups all tabs from other windows into the target window.
  * Pinned tabs are moved first, followed by unpinned tabs.
