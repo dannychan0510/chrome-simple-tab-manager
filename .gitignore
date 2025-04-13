@@ -31,4 +31,5 @@ venv/
 # Other
 .DS_Store
 Thumbs.db
+storypoints/
 # End Generation Here

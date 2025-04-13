@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Tab Manager",
+  "name": "Simple Tab Manager",
   "version": "1.0",
-  "description": "A Chrome extension to manage tabs by grouping, sorting, and removing duplicates",
+  "description": "A Chrome extension to manage tabs by grouping, sorting, and removing duplicate tabs.",
   "permissions": [
     "tabs",
     "tabGroups",
