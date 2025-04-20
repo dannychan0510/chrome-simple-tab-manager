@@ -59,8 +59,8 @@
 - Expected: Only duplicates in Window A are removed, Window B unchanged
 
 ##### 2. Sort Tabs (Window A)
-- [ ] Test via popup from Window A (with/without "Preserve pinned")
-- [ ] Test via keyboard shortcut from Window A
+- [x] Test via popup from Window A (with/without "Preserve pinned")
+- [x] Test via keyboard shortcut from Window A
 - Expected: Only Window A's tabs are sorted, Window B unchanged
 
 ##### 3. Group by Domain (Window A)

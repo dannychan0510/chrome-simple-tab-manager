@@ -127,13 +127,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  buttons.sortTabs.addEventListener('click', () => {
+  buttons.sortTabs.addEventListener('click', async () => {
     try {
       setButtonsEnabled(false);
       displayStatus('Sorting tabs...', 'processing');
       
+      // Get the current window ID
+      const currentWindow = await chrome.windows.getCurrent();
       chrome.runtime.sendMessage({ 
         action: 'sortTabs',
+        targetWindowId: currentWindow.id,
         preservePinned: preservePinnedToggle.checked
       }, (response) => {
         handleResponse(response, 'Tabs sorted successfully!');

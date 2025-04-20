@@ -543,11 +543,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle sort tabs action
     (async () => {
       try {
-        const currentWindow = await chrome.windows.getCurrent();
-        await sortTabs(currentWindow.id, request.preservePinned);
+        console.log('[Message Handler] Starting sortTabs action');
+        const targetWindowId = request.targetWindowId;
+        if (!targetWindowId) {
+          throw new Error("No target window ID provided for sortTabs action.");
+        }
+        console.log('[Message Handler] Using target window ID:', targetWindowId);
+        await sortTabs(targetWindowId, request.preservePinned);
+        console.log('[Message Handler] sortTabs completed successfully');
         sendResponse({ success: true });
       } catch (error) {
-        console.error('Error in sortTabs:', error);
+        console.error('[Message Handler] Error in sortTabs:', error);
         sendResponse({ 
           success: false, 
           error: error.message || 'Failed to sort tabs'
