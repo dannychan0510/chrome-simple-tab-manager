@@ -97,21 +97,23 @@ document.addEventListener('DOMContentLoaded', () => {
   if (buttons.groupTabs) {
     buttons.groupTabs.addEventListener('click', async () => {
       try {
-        setButtonsEnabled(false);
-        displayStatus('Grouping tabs...', 'processing');
-        
         // Get the current window ID
         const currentWindow = await chrome.windows.getCurrent();
-        chrome.runtime.sendMessage({ 
+        
+        // Send message to background script with the current window ID
+        const response = await chrome.runtime.sendMessage({
           action: 'groupTabs',
           targetWindowId: currentWindow.id
-        }, (response) => {
-          handleResponse(response, 'Tabs grouped successfully!');
         });
+        
+        if (response.success) {
+          displayStatus('Tabs grouped successfully!', 'success');
+        } else {
+          displayStatus(`Error: ${response.error || 'Failed to group tabs'}`, 'error');
+        }
       } catch (error) {
-        displayStatus(`Error: ${error.message}`, 'error');
-        console.error('Error in groupTabs operation:', error);
-        setButtonsEnabled(true);
+        console.error('Error in groupTabs click handler:', error);
+        displayStatus(`Error: ${error.message || 'Failed to group tabs'}`, 'error');
       }
     });
   }

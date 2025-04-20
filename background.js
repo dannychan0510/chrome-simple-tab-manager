@@ -91,16 +91,32 @@ const processingWindows = new Set();
  */
 async function groupAllTabs(targetWindowId) {
   try {
-    const windows = await chrome.windows.getAll({ populate: true });
+    console.log(`[groupAllTabs] Starting with target window ID: ${targetWindowId}`);
     
-    // Find the target window
-    const targetWindow = windows.find(w => w.id === targetWindowId);
-    if (!targetWindow) {
-      throw new Error('Target window not found');
+    // Verify the target window exists
+    try {
+      const targetWindow = await chrome.windows.get(targetWindowId);
+      if (!targetWindow) {
+        throw new Error(`Target window with ID ${targetWindowId} not found.`);
+      }
+      console.log(`[groupAllTabs] Target window found: ${targetWindowId}`);
+    } catch (error) {
+      throw new Error(`Target window with ID ${targetWindowId} not found: ${error.message}`);
     }
-
-    // Collect all windows that need to be processed (excluding target window)
+    
+    // Get all windows
+    const windows = await chrome.windows.getAll({ populate: true });
+    console.log(`[groupAllTabs] Found ${windows.length} windows total`);
+    
+    // Filter out the target window
     const windowsToProcess = windows.filter(w => w.id !== targetWindowId);
+    console.log(`[groupAllTabs] Processing ${windowsToProcess.length} windows (excluding target)`);
+    
+    // If there are no other windows to process, we're done
+    if (windowsToProcess.length === 0) {
+      console.log(`[groupAllTabs] No other windows to process, operation complete`);
+      return true;
+    }
     
     // First, collect all pinned tabs from other windows
     const pinnedTabsToMove = [];
@@ -108,14 +124,20 @@ async function groupAllTabs(targetWindowId) {
     
     for (const window of windowsToProcess) {
       const tabs = window.tabs;
+      console.log(`[groupAllTabs] Window ${window.id} has ${tabs.length} tabs`);
+      
       pinnedTabsToMove.push(...tabs.filter(tab => tab.pinned));
       unpinnedTabsToMove.push(...tabs.filter(tab => !tab.pinned));
     }
+    
+    console.log(`[groupAllTabs] Found ${pinnedTabsToMove.length} pinned tabs and ${unpinnedTabsToMove.length} unpinned tabs to move`);
     
     // Move all pinned tabs first, preserving their order
     if (pinnedTabsToMove.length > 0) {
       try {
         const pinnedTabIds = pinnedTabsToMove.map(tab => tab.id);
+        console.log(`[groupAllTabs] Moving ${pinnedTabIds.length} pinned tabs to window ${targetWindowId}`);
+        
         await chrome.tabs.move(pinnedTabIds, {
           windowId: targetWindowId,
           index: 0 // Move to the start of the window
@@ -125,8 +147,10 @@ async function groupAllTabs(targetWindowId) {
         await Promise.all(pinnedTabIds.map(tabId => 
           chrome.tabs.update(tabId, { pinned: true })
         ));
+        
+        console.log(`[groupAllTabs] Successfully moved pinned tabs`);
       } catch (error) {
-        console.error('Error moving pinned tabs:', error);
+        console.error('[groupAllTabs] Error moving pinned tabs:', error);
         throw new Error(`Failed to move pinned tabs: ${error.message}`);
       }
     }
@@ -135,12 +159,16 @@ async function groupAllTabs(targetWindowId) {
     if (unpinnedTabsToMove.length > 0) {
       try {
         const unpinnedTabIds = unpinnedTabsToMove.map(tab => tab.id);
+        console.log(`[groupAllTabs] Moving ${unpinnedTabIds.length} unpinned tabs to window ${targetWindowId}`);
+        
         await chrome.tabs.move(unpinnedTabIds, {
           windowId: targetWindowId,
           index: -1 // Move to the end of the window
         });
+        
+        console.log(`[groupAllTabs] Successfully moved unpinned tabs`);
       } catch (error) {
-        console.error('Error moving unpinned tabs:', error);
+        console.error('[groupAllTabs] Error moving unpinned tabs:', error);
         throw new Error(`Failed to move unpinned tabs: ${error.message}`);
       }
     }
@@ -148,18 +176,19 @@ async function groupAllTabs(targetWindowId) {
     // After all tabs are moved, close the empty windows
     for (const window of windowsToProcess) {
       try {
+        console.log(`[groupAllTabs] Closing empty window ${window.id}`);
         await chrome.windows.remove(window.id);
       } catch (error) {
-        console.error(`Error closing window ${window.id}:`, error);
+        console.error(`[groupAllTabs] Error closing window ${window.id}:`, error);
         // Continue with other windows even if one fails
       }
     }
     
-    // Return true to indicate success
+    console.log(`[groupAllTabs] Operation completed successfully`);
     return true;
   } catch (error) {
-    console.error('Error in groupAllTabs:', error);
-    throw error; // Re-throw to be caught by the caller
+    console.error('[groupAllTabs] Error in groupAllTabs:', error);
+    throw error;
   }
 }
 
@@ -512,11 +541,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle group tabs action
     (async () => {
       try {
-        const currentWindow = await chrome.windows.getCurrent();
-        await groupAllTabs(currentWindow.id);
+        console.log('[Message Handler] Starting groupTabs action');
+        
+        // Use the window ID from the sender if provided, otherwise get current window
+        let targetWindowId;
+        if (request.targetWindowId) {
+          targetWindowId = request.targetWindowId;
+          console.log(`[Message Handler] Using provided target window ID: ${targetWindowId}`);
+        } else {
+          const currentWindow = await chrome.windows.getCurrent();
+          targetWindowId = currentWindow.id;
+          console.log(`[Message Handler] Using current window ID: ${targetWindowId}`);
+        }
+        
+        // Verify the window exists
+        try {
+          const window = await chrome.windows.get(targetWindowId);
+          if (!window) {
+            throw new Error(`Window with ID ${targetWindowId} not found.`);
+          }
+        } catch (error) {
+          throw new Error(`Window with ID ${targetWindowId} not found: ${error.message}`);
+        }
+        
+        await groupAllTabs(targetWindowId);
+        console.log('[Message Handler] groupAllTabs completed successfully');
         sendResponse({ success: true });
       } catch (error) {
-        console.error('Error in groupTabs:', error);
+        console.error('[Message Handler] Error in groupTabs:', error);
         sendResponse({ 
           success: false, 
           error: error.message || 'Failed to group tabs'
