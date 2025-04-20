@@ -11,8 +11,8 @@ chrome.commands.onCommand.addListener(async (command) => {
         try {
           const currentWindow = await chrome.windows.getCurrent();
           await groupAllTabs(currentWindow.id);
-          await sortTabs(currentWindow.id, preservePinned);
-          await removeDuplicateTabs(currentWindow.id);
+          await sortTabs(preservePinned);
+          await removeDuplicateTabs();
           console.log('Clean Tabs command executed successfully.');
         } catch (error) {
           console.error('Error executing Clean Tabs command:', error);
@@ -31,8 +31,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         
       case "execute_remove_duplicates":
         try {
-          const currentWindow = await chrome.windows.getCurrent();
-          await removeDuplicateTabs(currentWindow.id);
+          await removeDuplicateTabs();
           console.log('Remove Duplicates command executed successfully.');
         } catch (error) {
           console.error('Error executing Remove Duplicates command:', error);
@@ -41,8 +40,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         
       case "execute_sort_tabs":
         try {
-          const currentWindow = await chrome.windows.getCurrent();
-          await sortTabs(currentWindow.id, preservePinned);
+          await sortTabs(preservePinned);
           console.log('Sort Tabs command executed successfully.');
         } catch (error) {
           console.error('Error executing Sort Tabs command:', error);
@@ -51,8 +49,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         
       case "execute_group_by_domain":
         try {
-          const currentWindow = await chrome.windows.getCurrent();
-          await groupTabsByDomain(currentWindow.id);
+          await groupTabsByDomain();
           console.log('Group by Domain command executed successfully.');
           console.log('Note: This command no longer has a default keyboard shortcut due to Chrome\'s 4-shortcut limit. You can still use it from the extension popup.');
         } catch (error) {
@@ -62,7 +59,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         
       case "execute_close_blank_tabs":
         try {
-          await closeBlankTabs(currentWindow.id);
+          await closeBlankTabs();
           console.log('Close Blank Tabs command executed successfully.');
           console.log('Note: This command no longer has a default keyboard shortcut due to Chrome\'s 4-shortcut limit. You can still use it from the extension popup.');
         } catch (error) {
@@ -160,17 +157,13 @@ async function groupAllTabs(targetWindowId) {
 }
 
 /**
- * Sorts tabs within the specified window by URL and title.
- * @param {number} windowId - The ID of the window to sort tabs in
+ * Sorts tabs within the current window by URL and title.
  * @param {boolean} preservePinned - If true, keeps pinned tabs at the start in their original order
  * @returns {Promise<boolean>} - True if successful, throws error if failed
  */
-async function sortTabs(windowId, preservePinned = false) {
+async function sortTabs(preservePinned = false) {
   try {
-    const window = await chrome.windows.get(windowId, { populate: true });
-    if (!window) {
-      throw new Error(`Window with ID ${windowId} not found.`);
-    }
+    const window = await chrome.windows.getCurrent({ populate: true });
     const tabs = window.tabs;
     
     // Separate pinned and unpinned tabs
@@ -254,144 +247,52 @@ async function sortTabs(windowId, preservePinned = false) {
 }
 
 /**
- * Removes duplicate tabs from the specified window.
+ * Removes duplicate tabs from the current window.
  * A duplicate is defined as having the same URL as another tab.
- * @param {number} windowId - The ID of the window to remove duplicate tabs from
  * @returns {Promise<boolean>} - True if successful, throws error if failed
  */
-async function removeDuplicateTabs(windowId) {
+async function removeDuplicateTabs() {
   try {
-    console.log(`[removeDuplicateTabs] Starting with windowId: ${windowId}`);
-    
-    const window = await chrome.windows.get(windowId, { populate: true });
-    if (!window) {
-      throw new Error(`Window with ID ${windowId} not found.`);
-    }
-    console.log(`[removeDuplicateTabs] Found window with ${window.tabs.length} tabs`);
-    
+    const window = await chrome.windows.getCurrent({ populate: true });
     const tabs = window.tabs;
-    const seenUrls = new Map(); // Map to store normalized URL -> first tab ID that has this URL
+    const seenUrls = new Set();
     const tabsToRemove = [];
-    const firstOccurrences = new Set(); // Set to track which tabs are first occurrences
     
-    // Helper function to normalize URLs
-    const normalizeUrl = (url) => {
-      try {
-        // Handle special chrome:// URLs
-        if (url.startsWith('chrome://')) {
-          return url;
-        }
-        
-        const urlObj = new URL(url);
-        const domain = urlObj.hostname;
-        
-        // Special handling for common domains
-        if (domain === 'www.youtube.com' || domain === 'youtube.com') {
-          // For YouTube, keep only the domain
-          return 'https://www.youtube.com';
-        }
-        
-        if (domain === 'www.reddit.com' || domain === 'reddit.com') {
-          // For Reddit, keep only the domain
-          return 'https://www.reddit.com';
-        }
-        
-        if (domain === 'mail.google.com') {
-          // For Gmail, keep only the domain
-          return 'https://mail.google.com';
-        }
-        
-        // For other URLs, keep domain and first path segment
-        const pathSegments = urlObj.pathname.split('/').filter(Boolean);
-        if (pathSegments.length > 0) {
-          return `${urlObj.origin}/${pathSegments[0]}`;
-        }
-        
-        return urlObj.origin;
-      } catch (e) {
-        console.error(`[normalizeUrl] Error normalizing URL ${url}:`, e);
-        return url;
-      }
-    };
-    
-    // First pass: identify all duplicate tabs and mark first occurrences
+    // First identify all duplicate tabs
     for (const tab of tabs) {
-      console.log(`[removeDuplicateTabs] Processing tab ${tab.id} with URL: ${tab.url}`);
-      const normalizedUrl = normalizeUrl(tab.url);
-      console.log(`[removeDuplicateTabs] Normalized URL: ${normalizedUrl}`);
-      
-      if (seenUrls.has(normalizedUrl)) {
-        // This is a duplicate, add it to the list to remove
-        console.log(`[removeDuplicateTabs] Found duplicate URL: ${normalizedUrl}`);
-        console.log(`[removeDuplicateTabs] Original tab ID: ${seenUrls.get(normalizedUrl)}`);
-        console.log(`[removeDuplicateTabs] Duplicate tab ID: ${tab.id}`);
+      if (seenUrls.has(tab.url)) {
         tabsToRemove.push(tab.id);
       } else {
-        // First time seeing this URL, store the tab ID and mark as first occurrence
-        console.log(`[removeDuplicateTabs] First occurrence of URL: ${normalizedUrl}`);
-        seenUrls.set(normalizedUrl, tab.id);
-        firstOccurrences.add(tab.id);
+        seenUrls.add(tab.url);
       }
     }
-    
-    console.log(`[removeDuplicateTabs] Found ${tabsToRemove.length} tabs to remove`);
     
     // Then remove them in batch if any exist
     if (tabsToRemove.length > 0) {
       try {
-        // Get the active tab
-        const activeTab = await chrome.tabs.query({ active: true, currentWindow: true });
-        const activeTabId = activeTab[0]?.id;
-        
-        // If the active tab is a duplicate (not a first occurrence), we need to switch to the first occurrence
-        if (activeTabId && tabsToRemove.includes(activeTabId)) {
-          // Find the first occurrence of this URL
-          const activeTabUrl = tabs.find(t => t.id === activeTabId)?.url;
-          if (activeTabUrl) {
-            const normalizedUrl = normalizeUrl(activeTabUrl);
-            const firstOccurrenceId = seenUrls.get(normalizedUrl);
-            if (firstOccurrenceId) {
-              console.log(`[removeDuplicateTabs] Switching from active tab ${activeTabId} to first occurrence ${firstOccurrenceId}`);
-              await chrome.tabs.update(firstOccurrenceId, { active: true });
-            }
-          }
-        }
-        
-        console.log(`[removeDuplicateTabs] Removing tabs: ${tabsToRemove.join(', ')}`);
-        
-        // Add a small delay before removing tabs
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
         await chrome.tabs.remove(tabsToRemove);
-        console.log('[removeDuplicateTabs] Successfully removed duplicate tabs');
       } catch (error) {
-        console.error('[removeDuplicateTabs] Error removing duplicate tabs:', error);
+        console.error('Error removing duplicate tabs:', error);
         throw new Error(`Failed to remove duplicate tabs: ${error.message}`);
       }
-    } else {
-      console.log('[removeDuplicateTabs] No duplicate tabs found to remove');
     }
     
     // Return true to indicate success
     return true;
   } catch (error) {
-    console.error('[removeDuplicateTabs] Error in removeDuplicateTabs:', error);
+    console.error('Error in removeDuplicateTabs:', error);
     throw error; // Re-throw to be caught by the caller
   }
 }
 
 /**
  * Groups tabs by their domain using Chrome's Tab Groups API.
- * @param {number} windowId - The ID of the window to group tabs by domain in
  * @returns {Promise<boolean>} - True if successful, throws error if failed
  */
-async function groupTabsByDomain(windowId) {
+async function groupTabsByDomain() {
   try {
-    // Get all tabs in the specified window
-    const window = await chrome.windows.get(windowId, { populate: true });
-    if (!window) {
-      throw new Error(`Window with ID ${windowId} not found.`);
-    }
+    // Get all tabs in the current window
+    const window = await chrome.windows.getCurrent({ populate: true });
     const tabs = window.tabs;
 
     // Create a map to store tabs by domain
@@ -451,17 +352,13 @@ function getRandomColor() {
 }
 
 /**
- * Closes all blank and new tab pages in the specified window.
- * @param {number} windowId - The ID of the window to close blank tabs in
+ * Closes all blank and new tab pages in the current window.
  * @returns {Promise<boolean>} - True if successful, throws error if failed
  */
-async function closeBlankTabs(windowId) {
+async function closeBlankTabs() {
   try {
-    // Get all tabs in the specified window
-    const window = await chrome.windows.get(windowId, { populate: true });
-    if (!window) {
-      throw new Error(`Window with ID ${windowId} not found.`);
-    }
+    // Get all tabs in the current window
+    const window = await chrome.windows.getCurrent({ populate: true });
     const tabs = window.tabs;
     
     // Filter tabs that are blank or new tab pages
@@ -507,10 +404,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         await groupAllTabs(currentWindow.id);
         
         // Then sort the tabs
-        await sortTabs(currentWindow.id, request.preservePinned);
+        await sortTabs(request.preservePinned);
         
         // Finally remove duplicates
-        await removeDuplicateTabs(currentWindow.id);
+        await removeDuplicateTabs();
         
         // Send success response
         sendResponse({ success: true });
@@ -543,8 +440,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle sort tabs action
     (async () => {
       try {
-        const currentWindow = await chrome.windows.getCurrent();
-        await sortTabs(currentWindow.id, request.preservePinned);
+        await sortTabs(request.preservePinned);
         sendResponse({ success: true });
       } catch (error) {
         console.error('Error in sortTabs:', error);
@@ -559,17 +455,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle remove duplicates action
     (async () => {
       try {
-        console.log('[Message Handler] Starting removeDuplicates action');
-        const targetWindowId = request.targetWindowId;
-        if (!targetWindowId) {
-          throw new Error("No target window ID provided for removeDuplicates action.");
-        }
-        console.log('[Message Handler] Using target window ID:', targetWindowId);
-        await removeDuplicateTabs(targetWindowId);
-        console.log('[Message Handler] removeDuplicateTabs completed successfully');
+        await removeDuplicateTabs();
         sendResponse({ success: true });
       } catch (error) {
-        console.error('[Message Handler] Error in removeDuplicates:', error);
+        console.error('Error in removeDuplicates:', error);
         sendResponse({ 
           success: false, 
           error: error.message || 'Failed to remove duplicate tabs'
@@ -581,8 +470,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle group by domain action
     (async () => {
       try {
-        const currentWindow = await chrome.windows.getCurrent();
-        await groupTabsByDomain(currentWindow.id);
+        await groupTabsByDomain();
         sendResponse({ success: true });
       } catch (error) {
         console.error('Error in groupByDomain:', error);
@@ -597,11 +485,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle close blank tabs action
     (async () => {
       try {
-        const currentWindow = await chrome.windows.getCurrent();
-        if (!currentWindow) {
-          throw new Error("Could not get current window for popup action.");
-        }
-        await closeBlankTabs(currentWindow.id);
+        await closeBlankTabs();
         sendResponse({ success: true });
       } catch (error) {
         console.error('Error in closeBlankTabs:', error);

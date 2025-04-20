@@ -107,17 +107,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  buttons.removeDuplicates.addEventListener('click', async () => {
+  buttons.removeDuplicates.addEventListener('click', () => {
     try {
       setButtonsEnabled(false);
       displayStatus('Removing duplicates...', 'processing');
       
-      // Get the current window ID
-      const currentWindow = await chrome.windows.getCurrent();
-      chrome.runtime.sendMessage({ 
-        action: 'removeDuplicates',
-        targetWindowId: currentWindow.id
-      }, (response) => {
+      chrome.runtime.sendMessage({ action: 'removeDuplicates' }, (response) => {
         handleResponse(response, 'Duplicates removed successfully!');
       });
     } catch (error) {
