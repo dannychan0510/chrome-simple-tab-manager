@@ -62,6 +62,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         
       case "execute_close_blank_tabs":
         try {
+          const currentWindow = await chrome.windows.getCurrent();
           await closeBlankTabs(currentWindow.id);
           console.log('Close Blank Tabs command executed successfully.');
           console.log('Note: This command no longer has a default keyboard shortcut due to Chrome\'s 4-shortcut limit. You can still use it from the extension popup.');
@@ -78,6 +79,9 @@ chrome.commands.onCommand.addListener(async (command) => {
     console.error('Error in command handler:', error);
   }
 });
+
+// Set to track windows that are currently being processed
+const processingWindows = new Set();
 
 /**
  * Groups all tabs from other windows into the target window.
@@ -381,65 +385,6 @@ async function removeDuplicateTabs(windowId) {
 }
 
 /**
- * Groups tabs by their domain using Chrome's Tab Groups API.
- * @param {number} windowId - The ID of the window to group tabs by domain in
- * @returns {Promise<boolean>} - True if successful, throws error if failed
- */
-async function groupTabsByDomain(windowId) {
-  try {
-    // Get all tabs in the specified window
-    const window = await chrome.windows.get(windowId, { populate: true });
-    if (!window) {
-      throw new Error(`Window with ID ${windowId} not found.`);
-    }
-    const tabs = window.tabs;
-
-    // Create a map to store tabs by domain
-    const domainMap = new Map();
-
-    // Group tabs by domain
-    for (const tab of tabs) {
-      try {
-        const url = new URL(tab.url);
-        const domain = url.hostname;
-        
-        if (!domainMap.has(domain)) {
-          domainMap.set(domain, []);
-        }
-        domainMap.get(domain).push(tab.id);
-      } catch (error) {
-        console.warn(`Skipping tab with invalid URL: ${tab.url}`);
-        continue;
-      }
-    }
-
-    // Create groups for domains with multiple tabs
-    for (const [domain, tabIds] of domainMap.entries()) {
-      if (tabIds.length > 1) {
-        try {
-          // Create a new tab group
-          const groupId = await chrome.tabs.group({ tabIds });
-          
-          // Update the group's title and color
-          await chrome.tabGroups.update(groupId, {
-            title: domain,
-            color: getRandomColor()
-          });
-        } catch (error) {
-          console.error(`Error creating group for domain ${domain}:`, error);
-          throw new Error(`Failed to create group for domain ${domain}: ${error.message}`);
-        }
-      }
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in groupTabsByDomain:', error);
-    throw error;
-  }
-}
-
-/**
  * Returns a random color from the available tab group colors.
  * @returns {string} - A color name from chrome.tabGroups.ColorValue
  */
@@ -494,6 +439,43 @@ async function closeBlankTabs(windowId) {
   }
 }
 
+/**
+ * Ungroups all tabs in the specified window.
+ * @param {number} windowId - The ID of the window to ungroup tabs in
+ * @returns {Promise<boolean>} - True if successful, throws error if failed
+ */
+async function ungroupTabs(windowId) {
+  try {
+    console.log(`[ungroupTabs] Starting with windowId: ${windowId}`);
+    
+    // Get all tabs in the specified window
+    const window = await chrome.windows.get(windowId, { populate: true });
+    if (!window) {
+      throw new Error(`Window with ID ${windowId} not found.`);
+    }
+    console.log(`[ungroupTabs] Found window with ${window.tabs.length} tabs`);
+    
+    const tabs = window.tabs;
+    
+    // Ungroup all non-pinned tabs that are in groups
+    for (const tab of tabs) {
+      if (!tab.pinned && tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+        try {
+          await chrome.tabs.ungroup(tab.id);
+          console.log(`[ungroupTabs] Ungrouped tab ${tab.id}`);
+        } catch (error) {
+          console.warn(`[ungroupTabs] Failed to ungroup tab ${tab.id}:`, error);
+        }
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[ungroupTabs] Error in ungroupTabs:', error);
+    throw error;
+  }
+}
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'cleanTabsSequence') {
@@ -509,8 +491,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Then sort the tabs
         await sortTabs(currentWindow.id, request.preservePinned);
         
-        // Finally remove duplicates
+        // Remove duplicates
         await removeDuplicateTabs(currentWindow.id);
+        
+        // Close blank tabs
+        await closeBlankTabs(currentWindow.id);
         
         // Send success response
         sendResponse({ success: true });
@@ -583,37 +568,94 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     })();
     return true;
-  } else if (request.action === 'groupByDomain') {
-    // Handle group by domain action
-    (async () => {
-      try {
-        const currentWindow = await chrome.windows.getCurrent();
-        await groupTabsByDomain(currentWindow.id);
-        sendResponse({ success: true });
-      } catch (error) {
-        console.error('Error in groupByDomain:', error);
-        sendResponse({ 
-          success: false, 
-          error: error.message || 'Failed to group tabs by domain'
-        });
-      }
-    })();
-    return true;
   } else if (request.action === 'closeBlankTabs') {
     // Handle close blank tabs action
     (async () => {
       try {
-        const currentWindow = await chrome.windows.getCurrent();
-        if (!currentWindow) {
-          throw new Error("Could not get current window for popup action.");
+        console.log('[Message Handler] Starting closeBlankTabs action');
+        const targetWindowId = request.targetWindowId;
+        if (!targetWindowId) {
+          throw new Error("No target window ID provided for closeBlankTabs action.");
         }
-        await closeBlankTabs(currentWindow.id);
+        
+        // Verify the window still exists
+        try {
+          const window = await chrome.windows.get(targetWindowId);
+          if (!window) {
+            throw new Error(`Window with ID ${targetWindowId} no longer exists.`);
+          }
+        } catch (error) {
+          throw new Error(`Window with ID ${targetWindowId} not found: ${error.message}`);
+        }
+        
+        console.log('[Message Handler] Using target window ID:', targetWindowId);
+        
+        // Get the current window to verify we're not operating on the wrong window
+        const currentWindow = await chrome.windows.getCurrent();
+        if (currentWindow.id !== targetWindowId) {
+          console.log(`[Message Handler] Warning: Target window (${targetWindowId}) is not the current window (${currentWindow.id})`);
+          // We'll continue anyway, but log a warning
+        }
+        
+        await closeBlankTabs(targetWindowId);
+        console.log('[Message Handler] closeBlankTabs completed successfully');
         sendResponse({ success: true });
       } catch (error) {
-        console.error('Error in closeBlankTabs:', error);
+        console.error('[Message Handler] Error in closeBlankTabs:', error);
         sendResponse({ 
           success: false, 
           error: error.message || 'Failed to close blank tabs'
+        });
+      }
+    })();
+    return true;
+  } else if (request.action === 'ungroupTabs') {
+    // Handle ungroup tabs action
+    (async () => {
+      try {
+        console.log('[Message Handler] Starting ungroupTabs action');
+        const targetWindowId = request.targetWindowId;
+        if (!targetWindowId) {
+          throw new Error("No target window ID provided for ungroupTabs action.");
+        }
+        
+        // Verify the window still exists
+        try {
+          const window = await chrome.windows.get(targetWindowId);
+          if (!window) {
+            throw new Error(`Window with ID ${targetWindowId} no longer exists.`);
+          }
+        } catch (error) {
+          throw new Error(`Window with ID ${targetWindowId} not found: ${error.message}`);
+        }
+        
+        console.log('[Message Handler] Using target window ID:', targetWindowId);
+        
+        // Get the current window to verify we're not operating on the wrong window
+        const currentWindow = await chrome.windows.getCurrent();
+        if (currentWindow.id !== targetWindowId) {
+          console.log(`[Message Handler] Warning: Target window (${targetWindowId}) is not the current window (${currentWindow.id})`);
+          // We'll continue anyway, but log a warning
+        }
+        
+        // Check if tabs are already ungrouped to prevent unnecessary operations
+        const tabs = await chrome.tabs.query({ windowId: targetWindowId });
+        const hasGroupedTabs = tabs.some(tab => !tab.pinned && tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE);
+        
+        if (!hasGroupedTabs) {
+          console.log('[Message Handler] Tabs are already ungrouped, skipping ungroupTabs operation');
+          sendResponse({ success: true, message: 'Tabs are already ungrouped' });
+          return;
+        }
+        
+        await ungroupTabs(targetWindowId);
+        console.log('[Message Handler] ungroupTabs completed successfully');
+        sendResponse({ success: true });
+      } catch (error) {
+        console.error('[Message Handler] Error in ungroupTabs:', error);
+        sendResponse({ 
+          success: false, 
+          error: error.message || 'Failed to ungroup tabs'
         });
       }
     })();

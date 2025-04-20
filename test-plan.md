@@ -64,11 +64,11 @@
 - Expected: Only Window A's tabs are sorted, Window B unchanged
 
 ##### 3. Group by Domain (Window A)
-- [ ] Test via popup from Window A
+- [x] Test via popup from Window A
 - Expected: Only Window A's tabs are grouped, Window B unchanged
 
 ##### 4. Close Blank Tabs (Window A)
-- [ ] Test via popup from Window A
+- [x] Test via popup from Window A
 - Expected: Only Window A's blank tabs are closed, Window B unchanged
 
 ##### 5. Clean Tabs (Window A)
