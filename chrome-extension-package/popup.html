@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple Tab Manager</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1>Simple Tab Manager</h1>
+    
+    <div class="toggle-container">
+      <label class="toggle-label">
+        <span class="material-icons">push_pin</span>
+        Preserve Pinned Tabs
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="preservePinned">
+        <span class="slider round"></span>
+      </label>
+    </div>
+    
+    <div class="button-container">
+      <button id="cleanTabs" class="action-button">
+        <span class="material-icons">cleaning_services</span>
+        Clean Tabs
+      </button>
+      <button id="groupTabs" class="action-button">
+        <span class="material-icons">merge</span>
+        <span>Consolidate Windows</span>
+      </button>
+      <button id="removeDuplicates" class="action-button">
+        <span class="material-icons">content_copy</span>
+        Remove Duplicates
+      </button>
+      <button id="sortTabs" class="action-button">
+        <span class="material-icons">sort</span>
+        Sort Tabs
+      </button>
+      <button id="closeBlankTabs" class="action-button">
+        <span class="material-icons">close</span>
+        Close Blank Tabs
+      </button>
+    </div>
+    
+    <div id="statusMessage" class="status"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html> 

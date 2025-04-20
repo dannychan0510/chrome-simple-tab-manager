@@ -4,17 +4,18 @@ A Chrome extension that helps you organize and manage your browser tabs efficien
 
 ## Features
 
-- **Clean Tabs**: One-click solution to group, sort, and remove duplicate tabs
-- **Group All Tabs**: Organize all tabs in the current window into groups
+- **Clean Tabs**: One-click solution to remove duplicates and sort tabs
+- **Consolidate Windows**: Merge all windows into the current window
 - **Sort Tabs**: Alphabetically sort tabs by title
 - **Remove Duplicates**: Close duplicate tabs while keeping the first occurrence
+- **Close Blank Tabs**: Remove all blank/new tabs
 - **Keyboard Shortcuts**: Quick access to all features
 - **Preserve Pinned Tabs**: Option to maintain pinned tabs in their original positions
 
 ## Keyboard Shortcuts
 
-- `Alt+Shift+C`: Clean Tabs (Group All, Remove Duplicates, Sort)
-- `Alt+Shift+G`: Group All Tabs
+- `Alt+Shift+C`: Clean Tabs (Remove Duplicates, Sort)
+- `Alt+Shift+G`: Consolidate All Windows
 - `Alt+Shift+S`: Sort Tabs
 - `Alt+Shift+D`: Remove Duplicate Tabs
 
@@ -28,14 +29,13 @@ A Chrome extension that helps you organize and manage your browser tabs efficien
 
 1. Click the Simple Tab Manager icon in your Chrome toolbar
 2. Choose from the following actions:
-   - **Clean Tabs**: Performs a complete cleanup (group, sort, remove duplicates)
-   - **Group All Tabs**: Groups all tabs in the current window
+   - **Clean Tabs**: Performs a complete cleanup (remove duplicates and sort)
+   - **Consolidate Windows**: Merges all windows into the current window
    - **Sort Tabs**: Sorts tabs alphabetically
    - **Remove Duplicates**: Closes duplicate tabs
-   - **Group by Domain**: Groups tabs by their domain
    - **Close Blank Tabs**: Closes all blank/new tabs
 
-3. Use the "Preserve pinned tabs order" checkbox to maintain pinned tabs in their original positions
+3. Use the "Preserve pinned tabs" toggle to maintain pinned tabs in their original positions
 
 ## Development
 
@@ -59,6 +59,8 @@ simple-tab-manager/
 ├── background.js      # Background service worker
 ├── popup.html         # Extension popup interface
 ├── popup.js           # Popup functionality
+├── styles.css         # Main styles
+├── popup.css          # Popup-specific styles
 └── icons/             # Extension icons
     ├── icon16.png
     ├── icon32.png

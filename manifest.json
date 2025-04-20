@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Simple Tab Manager",
-  "version": "1.0",
-  "description": "A Chrome extension to manage tabs by grouping, sorting, and removing duplicate tabs.",
+  "version": "1.1.0",
+  "description": "A Chrome extension to manage tabs by consolidating windows, sorting, and removing duplicate tabs.",
   "permissions": [
     "tabs",
     "tabGroups",
@@ -29,13 +29,13 @@
       "suggested_key": {
         "default": "Alt+Shift+C"
       },
-      "description": "Clean Tabs (Group All, Remove Duplicates, Sort)"
+      "description": "Clean Tabs (Remove Duplicates, Sort)"
     },
     "execute_group_all_tabs": {
       "suggested_key": {
         "default": "Alt+Shift+G"
       },
-      "description": "Group All Tabs into Current Window"
+      "description": "Consolidate All Windows into Current Window"
     },
     "execute_sort_tabs": {
       "suggested_key": {
