@@ -303,66 +303,24 @@ async function removeDuplicateTabs(windowId) {
     console.log(`[removeDuplicateTabs] Found window with ${window.tabs.length} tabs`);
     
     const tabs = window.tabs;
-    const seenUrls = new Map(); // Map to store normalized URL -> first tab ID that has this URL
+    const seenUrls = new Map(); // Map to store URL -> first tab ID that has this URL
     const tabsToRemove = [];
-    const firstOccurrences = new Set(); // Set to track which tabs are first occurrences
-    
-    // Helper function to normalize URLs
-    const normalizeUrl = (url) => {
-      try {
-        // Handle special chrome:// URLs
-        if (url.startsWith('chrome://')) {
-          return url;
-        }
-        
-        const urlObj = new URL(url);
-        const domain = urlObj.hostname;
-        
-        // Special handling for common domains
-        if (domain === 'www.youtube.com' || domain === 'youtube.com') {
-          // For YouTube, keep only the domain
-          return 'https://www.youtube.com';
-        }
-        
-        if (domain === 'www.reddit.com' || domain === 'reddit.com') {
-          // For Reddit, keep only the domain
-          return 'https://www.reddit.com';
-        }
-        
-        if (domain === 'mail.google.com') {
-          // For Gmail, keep only the domain
-          return 'https://mail.google.com';
-        }
-        
-        // For other URLs, keep domain and first path segment
-        const pathSegments = urlObj.pathname.split('/').filter(Boolean);
-        if (pathSegments.length > 0) {
-          return `${urlObj.origin}/${pathSegments[0]}`;
-        }
-        
-        return urlObj.origin;
-      } catch (e) {
-        console.error(`[normalizeUrl] Error normalizing URL ${url}:`, e);
-        return url;
-      }
-    };
+    const firstOccurrences = new Set();
     
     // First pass: identify all duplicate tabs and mark first occurrences
     for (const tab of tabs) {
       console.log(`[removeDuplicateTabs] Processing tab ${tab.id} with URL: ${tab.url}`);
-      const normalizedUrl = normalizeUrl(tab.url);
-      console.log(`[removeDuplicateTabs] Normalized URL: ${normalizedUrl}`);
       
-      if (seenUrls.has(normalizedUrl)) {
+      if (seenUrls.has(tab.url)) {
         // This is a duplicate, add it to the list to remove
-        console.log(`[removeDuplicateTabs] Found duplicate URL: ${normalizedUrl}`);
-        console.log(`[removeDuplicateTabs] Original tab ID: ${seenUrls.get(normalizedUrl)}`);
+        console.log(`[removeDuplicateTabs] Found duplicate URL: ${tab.url}`);
+        console.log(`[removeDuplicateTabs] Original tab ID: ${seenUrls.get(tab.url)}`);
         console.log(`[removeDuplicateTabs] Duplicate tab ID: ${tab.id}`);
         tabsToRemove.push(tab.id);
       } else {
         // First time seeing this URL, store the tab ID and mark as first occurrence
-        console.log(`[removeDuplicateTabs] First occurrence of URL: ${normalizedUrl}`);
-        seenUrls.set(normalizedUrl, tab.id);
+        console.log(`[removeDuplicateTabs] First occurrence of URL: ${tab.url}`);
+        seenUrls.set(tab.url, tab.id);
         firstOccurrences.add(tab.id);
       }
     }
@@ -381,8 +339,7 @@ async function removeDuplicateTabs(windowId) {
           // Find the first occurrence of this URL
           const activeTabUrl = tabs.find(t => t.id === activeTabId)?.url;
           if (activeTabUrl) {
-            const normalizedUrl = normalizeUrl(activeTabUrl);
-            const firstOccurrenceId = seenUrls.get(normalizedUrl);
+            const firstOccurrenceId = seenUrls.get(activeTabUrl);
             if (firstOccurrenceId) {
               console.log(`[removeDuplicateTabs] Switching from active tab ${activeTabId} to first occurrence ${firstOccurrenceId}`);
               await chrome.tabs.update(firstOccurrenceId, { active: true });
