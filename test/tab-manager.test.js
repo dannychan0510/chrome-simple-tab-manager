@@ -278,10 +278,12 @@ test("consolidation re-ungroups a tab that becomes grouped after its first ungro
   const originalGet = api.tabs.get;
   const originalUngroup = api.tabs.ungroup;
   let ungroupCalls = 0;
+  let readsAfterFirstUngroup = 0;
   api.tabs.ungroup = async (ids) => { ungroupCalls += 1; return originalUngroup(ids); };
   api.tabs.get = async (id) => {
     const tab = await originalGet(id);
-    return ungroupCalls === 1 && id === 2 ? { ...tab, groupId: 7 } : tab;
+    if (ungroupCalls === 1 && id === 2 && ++readsAfterFirstUngroup > 1) return { ...tab, groupId: 7 };
+    return tab;
   };
   const result = await createTabManager(api).run("consolidate", 1);
   assert.equal(result.status, "complete");
@@ -296,12 +298,38 @@ test("sort re-ungroups a tab that becomes grouped after its first ungroup phase"
   const originalGet = api.tabs.get;
   const originalUngroup = api.tabs.ungroup;
   let ungroupCalls = 0;
+  let readsAfterFirstUngroup = 0;
   api.tabs.ungroup = async (ids) => { ungroupCalls += 1; return originalUngroup(ids); };
   api.tabs.get = async (id) => {
     const tab = await originalGet(id);
-    return ungroupCalls === 1 && id === 2 ? { ...tab, groupId: 7 } : tab;
+    if (ungroupCalls === 1 && id === 2 && ++readsAfterFirstUngroup > 1) return { ...tab, groupId: 7 };
+    return tab;
   };
   const result = await createTabManager(api).run("sort", 1);
   assert.equal(result.status, "complete");
   assert.ok(ungroupCalls >= 2);
+});
+
+test("consolidate terminates when ungroup makes no progress", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://source.test/", groupId: 5 }] },
+  ]);
+  api.tabs.ungroup = async () => {};
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.notEqual(result.status, "complete");
+  assert.equal(api.calls.some(({ name }) => name === "tabs.move"), false);
+  assert.match(result.message, /ungroup.*progress/i);
+});
+
+test("sort terminates when ungroup makes no progress", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [
+    { id: 1, url: "https://z.test/", active: true },
+    { id: 2, url: "https://a.test/", groupId: 5 },
+  ] }]);
+  api.tabs.ungroup = async () => {};
+  const result = await createTabManager(api).run("sort", 1);
+  assert.notEqual(result.status, "complete");
+  assert.equal(api.calls.some(({ name }) => name === "tabs.move"), false);
+  assert.match(result.message, /ungroup.*progress/i);
 });

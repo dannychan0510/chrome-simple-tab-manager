@@ -52,6 +52,13 @@ async function moveWithCount(opAdapter, ids, properties, result) {
   }
 }
 
+async function ungroupWithProgress(opAdapter, ids, result) {
+  const count = await opAdapter.ungroup(ids);
+  if (count === 0) throw new Error("Ungrouping made no progress.");
+  result.ungrouped += count;
+  return count;
+}
+
 export function createTabManager(api, options = {}) {
   const activeOperations = new Map();
   const clock = options.now || (() => Date.now());
@@ -93,13 +100,17 @@ export function createTabManager(api, options = {}) {
       if (mode === "sort") return tab.windowId === scope.targetWindowId;
       return true;
     }).map(({ id }) => id));
+    let attempts = 0;
     while (pending.size) {
       const liveTabs = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
       const ids = liveTabs.filter((tab) => pending.has(tab.id) && Number.isInteger(tab.groupId) && tab.groupId >= 0 && !isSplitViewTab(tab) && (mode === "organize" || (mode === "consolidate" ? tab.windowId !== scope.targetWindowId : tab.windowId === scope.targetWindowId))).map(({ id }) => id).slice(0, BATCH_SIZE);
       if (!ids.length) break;
       await ensureTarget(scope);
-      result.ungrouped += await opAdapter.ungroup(ids);
-      ids.forEach((id) => pending.delete(id));
+      await ungroupWithProgress(opAdapter, ids, result);
+      const after = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
+      const stillGrouped = new Set(after.filter((tab) => ids.includes(tab.id) && Number.isInteger(tab.groupId) && tab.groupId >= 0 && !isSplitViewTab(tab)).map(({ id }) => id));
+      ids.forEach((id) => { if (!stillGrouped.has(id)) pending.delete(id); });
+      if (++attempts > Math.max(2, pending.size * 2)) throw new Error("Ungrouping made no progress.");
     }
   }
 
@@ -119,7 +130,7 @@ export function createTabManager(api, options = {}) {
         const grouped = available.filter((id) => plan.groupedIds.includes(id)).slice(0, BATCH_SIZE);
         if (grouped.length) {
           await ensureTarget(scope);
-          result.ungrouped += await opAdapter.ungroup(grouped);
+          await ungroupWithProgress(opAdapter, grouped, result);
           continue;
         }
         const batch = (pinned ? available.slice(-BATCH_SIZE) : available.slice(0, BATCH_SIZE));
@@ -174,7 +185,7 @@ export function createTabManager(api, options = {}) {
       const grouped = plan.groupedIds.filter((id) => tabs.some((tab) => tab.id === id && !isSplitViewTab(tab))).slice(0, BATCH_SIZE);
       if (grouped.length) {
         await ensureTarget(scope);
-        result.ungrouped += await opAdapter.ungroup(grouped);
+        await ungroupWithProgress(opAdapter, grouped, result);
         continue;
       }
       const currentIds = tabs.slice().sort((a, b) => a.index - b.index).map(({ id }) => id);
