@@ -73,8 +73,9 @@ export function planSort(tabs, { keepGroups = false, groupTitleById = new Map() 
     }
     const blocks = [...byGroup.entries()]
       .map(([groupId, groupTabs]) => {
-        const ordered = groupTabs.slice().sort((a, b) => a.index - b.index);
-        return { tabs: ordered, title: groupTitleById.get(groupId) || "", leftmostIndex: Math.min(...ordered.map((tab) => tab.index)) };
+        const leftmostIndex = Math.min(...groupTabs.map((tab) => tab.index));
+        const ordered = groupTabs.slice().sort(compareTabsByDomain);
+        return { tabs: ordered, title: groupTitleById.get(groupId) || "", leftmostIndex };
       })
       .sort(compareGroupBlocks);
     return [...blocks.flatMap((block) => block.tabs), ...ungrouped.slice().sort(compareTabsByDomain)];

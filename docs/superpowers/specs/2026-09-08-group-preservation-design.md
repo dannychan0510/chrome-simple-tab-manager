@@ -55,8 +55,9 @@ into the general order when it is off).
 For unpinned tabs, when the group switch is on:
 
 1. Each ordinary tab group present in the target window becomes one ordered
-   block. The tabs inside a group are not reordered relative to each other
-   by domain; they keep their existing relative order within the group.
+   block. The tabs inside a group are sorted by domain relative to each
+   other, the same rule used for ungrouped tabs, so a group's tabs are
+   never reordered against tabs outside the group, only within it.
 2. Blocks are ordered by the group's title, compared case-insensitively. A
    group with no title sorts using an empty title (so untitled groups sort
    before any named group). If two groups compare equal (both untitled, or

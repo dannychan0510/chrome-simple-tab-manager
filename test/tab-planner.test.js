@@ -75,6 +75,15 @@ test("planSort keeps a tab group's members contiguous and orders blocks by title
   assert.deepEqual(plan.orderedIds, [2, 4, 3, 1]);
 });
 
+test("planSort sorts a group's own members by domain instead of keeping their original order", () => {
+  const tabs = [
+    { id: 1, index: 0, pinned: false, groupId: 10, url: "https://zzz.example/", title: "" },
+    { id: 2, index: 1, pinned: false, groupId: 10, url: "https://aaa.example/", title: "" },
+  ];
+  const plan = planSort(tabs, { keepGroups: true, groupTitleById: new Map([[10, "Research"]]) });
+  assert.deepEqual(plan.orderedIds, [2, 1]);
+});
+
 test("planSort with two same-titled groups ties by leftmost tab index", () => {
   const tabs = [
     { id: 1, index: 0, pinned: false, groupId: 20, url: "https://a.example/" },
