@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   chooseDuplicateSurvivors,
+  compareGroupBlocks,
   domainSortKey,
   duplicateKey,
   isDuplicateEligible,
@@ -83,4 +84,20 @@ test("captured tab order wins after equal candidates are dragged", () => {
     new Map([[1, 0], [2, 1]]),
   );
   assert.equal(result.survivors[0].id, 1);
+});
+
+test("group blocks sort by title case-insensitively, untitled first, tie-break by leftmost tab index", () => {
+  const blocks = [
+    { title: "Work", leftmostIndex: 2 },
+    { title: "", leftmostIndex: 5 },
+    { title: "work", leftmostIndex: 0 },
+    { title: "Archive", leftmostIndex: 9 },
+  ];
+  const sorted = blocks.slice().sort(compareGroupBlocks);
+  assert.deepEqual(sorted, [
+    { title: "", leftmostIndex: 5 },
+    { title: "Archive", leftmostIndex: 9 },
+    { title: "work", leftmostIndex: 0 },
+    { title: "Work", leftmostIndex: 2 },
+  ]);
 });

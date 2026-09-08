@@ -1,5 +1,9 @@
 const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
 
+export function compareGroupBlocks(a, b) {
+  return collator.compare(a.title || "", b.title || "") || (a.leftmostIndex ?? Number.MAX_SAFE_INTEGER) - (b.leftmostIndex ?? Number.MAX_SAFE_INTEGER);
+}
+
 export const hasUsableId = (tab) => Number.isInteger(tab?.id) && tab.id >= 0;
 
 export const isSplitViewTab = (tab) => Number.isInteger(tab?.splitViewId) && tab.splitViewId >= 0;
