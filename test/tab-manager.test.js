@@ -111,7 +111,7 @@ test("sort leaves unrelated and split-view groups untouched", async () => {
     { id: 1, type: "normal", tabs: [{ id: 1, url: "https://z.test/", active: true }, { id: 2, url: "https://a.test/", groupId: 5 }] },
     { id: 2, type: "normal", tabs: [{ id: 3, url: "https://other.test/", groupId: 8 }, { id: 4, url: "https://split.test/", groupId: 9, splitViewId: 3 }] },
   ]);
-  const result = await createTabManager(api).run("sort", 1);
+  const result = await createTabManager(api).run("sort", 1, { keepGroups: false });
   assert.equal(result.ungrouped, 1);
   assert.equal(api.snapshotWindow(2).tabs.find(({ id }) => id === 3).groupId, 8);
   assert.equal(api.snapshotWindow(2).tabs.find(({ id }) => id === 4).groupId, 9);
@@ -122,7 +122,7 @@ test("consolidate leaves source split-view groups untouched", async () => {
     { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
     { id: 2, type: "normal", tabs: [{ id: 3, url: "https://split.test/", groupId: 7, splitViewId: 4 }, { id: 4, url: "https://move.test/", groupId: 8 }] },
   ]);
-  await createTabManager(api).run("consolidate", 1);
+  await createTabManager(api).run("consolidate", 1, { keepGroups: false });
   assert.equal(api.snapshotWindow(2).tabs.find(({ id }) => id === 3).groupId, 7);
   assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 4).groupId, -1);
 });
@@ -301,7 +301,7 @@ test("consolidation re-ungroups a tab that becomes grouped after its first ungro
     if (ungroupCalls === 1 && id === 2 && ++readsAfterFirstUngroup > 1) return { ...tab, groupId: 7 };
     return tab;
   };
-  const result = await createTabManager(api).run("consolidate", 1);
+  const result = await createTabManager(api).run("consolidate", 1, { keepGroups: false });
   assert.equal(result.status, "complete");
   assert.ok(ungroupCalls >= 2);
 });
@@ -321,7 +321,7 @@ test("sort re-ungroups a tab that becomes grouped after its first ungroup phase"
     if (ungroupCalls === 1 && id === 2 && ++readsAfterFirstUngroup > 1) return { ...tab, groupId: 7 };
     return tab;
   };
-  const result = await createTabManager(api).run("sort", 1);
+  const result = await createTabManager(api).run("sort", 1, { keepGroups: false });
   assert.equal(result.status, "complete");
   assert.ok(ungroupCalls >= 2);
 });
@@ -332,7 +332,7 @@ test("consolidate terminates when ungroup makes no progress", async () => {
     { id: 2, type: "normal", tabs: [{ id: 2, url: "https://source.test/", groupId: 5 }] },
   ]);
   api.tabs.ungroup = async () => {};
-  const result = await createTabManager(api).run("consolidate", 1);
+  const result = await createTabManager(api).run("consolidate", 1, { keepGroups: false });
   assert.notEqual(result.status, "complete");
   assert.equal(api.calls.some(({ name }) => name === "tabs.move"), false);
   assert.match(result.message, /ungroup.*progress/i);
@@ -344,7 +344,7 @@ test("sort terminates when ungroup makes no progress", async () => {
     { id: 2, url: "https://a.test/", groupId: 5 },
   ] }]);
   api.tabs.ungroup = async () => {};
-  const result = await createTabManager(api).run("sort", 1);
+  const result = await createTabManager(api).run("sort", 1, { keepGroups: false });
   assert.notEqual(result.status, "complete");
   assert.equal(api.calls.some(({ name }) => name === "tabs.move"), false);
   assert.match(result.message, /ungroup.*progress/i);
@@ -433,4 +433,26 @@ test("unpinned placement verification covers batches larger than fifty", async (
   assert.equal(result.status, "complete");
   assert.equal(result.moved, 101);
   assert.deepEqual(api.snapshotWindow(1).tabs.slice(1).map(({ id }) => id), sourceTabs.map(({ id }) => id));
+});
+
+test("sort keeps grouped tabs grouped by default (keepGroups defaults to true)", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [
+    { id: 1, url: "https://z.test/", active: true, groupId: -1 },
+    { id: 2, url: "https://a.test/", groupId: 5 },
+  ] }]);
+  const result = await createTabManager(api).run("sort", 1);
+  assert.equal(result.status, "complete");
+  assert.equal(result.ungrouped, 0);
+  assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 2).groupId, 5);
+});
+
+test("consolidate unpins a tab first when keepPins is false", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://source.test/", pinned: true }] },
+  ]);
+  const result = await createTabManager(api).run("consolidate", 1, { keepPins: false });
+  assert.equal(result.status, "complete");
+  assert.equal(result.unpinned, 1);
+  assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 2).pinned, false);
 });

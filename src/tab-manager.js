@@ -8,7 +8,7 @@ const SKIPPED_SPLIT_IDS = Symbol("skippedSplitIds");
 const MOVED_IDS = Symbol("movedIds");
 
 export function createEmptyResult(action) {
-  const result = { action, status: "running", moved: 0, removed: 0, ungrouped: 0, skippedSplit: 0, changed: 0, retained: 0, failed: 0, sortingSkipped: false, message: "" };
+  const result = { action, status: "running", moved: 0, removed: 0, ungrouped: 0, unpinned: 0, skippedSplit: 0, changed: 0, retained: 0, failed: 0, sortingSkipped: false, message: "" };
   Object.defineProperties(result, {
     [SKIPPED_SPLIT_IDS]: { value: new Set(), enumerable: false },
     [MOVED_IDS]: { value: new Set(), enumerable: false },
@@ -23,6 +23,7 @@ function resultMessage(result) {
   if (result.moved) parts.push(`Moved ${phrase(result.moved, "tab")}`);
   if (result.removed) parts.push(`Removed ${phrase(result.removed, "duplicate")}`);
   if (result.ungrouped) parts.push(`Ungrouped ${phrase(result.ungrouped, "tab")}`);
+  if (result.unpinned) parts.push(`Unpinned ${phrase(result.unpinned, "tab")}`);
   if (result.skippedSplit) parts.push(`Skipped ${phrase(result.skippedSplit, "split-view tab")}`);
   if (result.retained) parts.push(`Retained ${phrase(result.retained, "tab")}`);
   if (result.changed) parts.push(`Changed ${phrase(result.changed, "tab")}`);
@@ -77,7 +78,7 @@ export function createTabManager(api, options = {}) {
 
   async function updateLease(lease, result) {
     lease.lastUpdatedAt = clock();
-    lease.counts = { moved: result.moved, removed: result.removed, ungrouped: result.ungrouped, skippedSplit: result.skippedSplit, changed: result.changed, retained: result.retained, failed: result.failed };
+    lease.counts = { moved: result.moved, removed: result.removed, ungrouped: result.ungrouped, unpinned: result.unpinned, skippedSplit: result.skippedSplit, changed: result.changed, retained: result.retained, failed: result.failed };
     lease.message = result.message;
     await adapter.writeOperationState(lease.incognito, lease);
   }
@@ -114,7 +115,32 @@ export function createTabManager(api, options = {}) {
     }
   }
 
-  async function consolidatePhase(opAdapter, scope, result, changedIds, intentionalRemovals) {
+  async function unpinPhase(opAdapter, scope, result, changedIds, intentionalRemovals, mode) {
+    const inScope = (tab) => {
+      if (!tab.pinned) return false;
+      if (mode === "consolidate") return tab.windowId !== scope.targetWindowId;
+      if (mode === "sort") return tab.windowId === scope.targetWindowId;
+      return true;
+    };
+    const tabs = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
+    const pending = new Set(tabs.filter(inScope).map(({ id }) => id));
+    let attempts = 0;
+    while (pending.size) {
+      const liveTabs = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
+      const ids = liveTabs.filter((tab) => pending.has(tab.id) && inScope(tab)).map(({ id }) => id).slice(0, BATCH_SIZE);
+      if (!ids.length) break;
+      await ensureTarget(scope);
+      const count = await opAdapter.unpin(ids);
+      if (count === 0) throw new Error("Unpinning made no progress.");
+      result.unpinned += count;
+      const after = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
+      const stillPinned = new Set(after.filter((tab) => ids.includes(tab.id) && tab.pinned).map(({ id }) => id));
+      ids.forEach((id) => { if (!stillPinned.has(id)) pending.delete(id); });
+      if (++attempts > Math.max(2, pending.size * 2)) throw new Error("Unpinning made no progress.");
+    }
+  }
+
+  async function consolidatePhase(opAdapter, scope, result, changedIds, intentionalRemovals, options = {}) {
     const moveSection = async (pinned) => {
       const pending = new Set();
       let initial = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
@@ -184,7 +210,7 @@ export function createTabManager(api, options = {}) {
     result.survivorByRemovedId = plan.survivorByRemovedId;
   }
 
-  async function sortPhase(opAdapter, scope, result, changedIds, intentionalRemovals) {
+  async function sortPhase(opAdapter, scope, result, changedIds, intentionalRemovals, options = {}) {
     let previousOrder = null;
     let iterations = 0;
     while (true) {
@@ -192,7 +218,7 @@ export function createTabManager(api, options = {}) {
       addSkippedSplit(result, tabs.filter(isSplitViewTab));
       const plan = planSort(tabs);
       if (plan.skippedForSplitView) { result.sortingSkipped = true; return; }
-      const grouped = plan.groupedIds.filter((id) => tabs.some((tab) => tab.id === id && !isSplitViewTab(tab))).slice(0, BATCH_SIZE);
+      const grouped = options.keepGroups ? [] : plan.groupedIds.filter((id) => tabs.some((tab) => tab.id === id && !isSplitViewTab(tab))).slice(0, BATCH_SIZE);
       if (grouped.length) {
         await ensureTarget(scope);
         await ungroupWithProgress(opAdapter, grouped, result);
@@ -212,10 +238,12 @@ export function createTabManager(api, options = {}) {
     }
   }
 
-  async function run(action, targetWindowId) {
+  async function run(action, targetWindowId, preferences = {}) {
     if (!actions.has(action)) throw new Error(`Unknown action: ${action}`);
     if (!Number.isInteger(targetWindowId)) throw new Error("A target window is required.");
     const target = await assertTarget(targetWindowId);
+    const keepGroups = preferences.keepGroups ?? true;
+    const keepPins = preferences.keepPins ?? true;
     const incognito = Boolean(target.incognito);
     const leaseKey = incognito ? "private" : "regular";
     const existing = await adapter.readOperationState(incognito);
@@ -258,7 +286,7 @@ export function createTabManager(api, options = {}) {
       },
       onBatch: async () => {
         lease.lastUpdatedAt = clock();
-        lease.counts = { moved: result.moved, removed: result.removed, ungrouped: result.ungrouped, skippedSplit: result.skippedSplit, changed: result.changed, retained: result.retained, failed: result.failed };
+        lease.counts = { moved: result.moved, removed: result.removed, ungrouped: result.ungrouped, unpinned: result.unpinned, skippedSplit: result.skippedSplit, changed: result.changed, retained: result.retained, failed: result.failed };
         lease.message = result.message;
         await adapter.writeOperationState(lease.incognito, lease);
       },
@@ -269,21 +297,20 @@ export function createTabManager(api, options = {}) {
       const initialActiveId = scope.activeTabId;
       const changedIds = new Set();
       const intentionalRemovals = new Set();
+      const prepPhases = [];
+      if (action !== "deduplicate") {
+        if (!keepPins) prepPhases.push({ name: "unpin", run: (a, s, r, c, i) => unpinPhase(a, s, r, c, i, action) });
+        if (!keepGroups) prepPhases.push({ name: "ungroup", run: (a, s, r, c, i) => ungroupPhase(a, s, r, c, i, action) });
+      }
       const phaseMap = {
-        consolidate: [
-          { name: "ungroup", run: (a, s, r, c, i) => ungroupPhase(a, s, r, c, i, "consolidate") },
-          { name: "consolidate", run: consolidatePhase },
-        ],
-        sort: [
-          { name: "ungroup", run: (a, s, r, c, i) => ungroupPhase(a, s, r, c, i, "sort") },
-          { name: "sort", run: sortPhase },
-        ],
+        consolidate: [...prepPhases, { name: "consolidate", run: (a, s, r, c, i) => consolidatePhase(a, s, r, c, i, { keepGroups }) }],
+        sort: [...prepPhases, { name: "sort", run: (a, s, r, c, i) => sortPhase(a, s, r, c, i, { keepGroups }) }],
         deduplicate: [{ name: "deduplicate", run: deduplicatePhase }],
         organize: [
-          { name: "ungroup", run: (a, s, r, c, i) => ungroupPhase(a, s, r, c, i, "organize") },
-          { name: "consolidate", run: consolidatePhase },
+          ...prepPhases,
+          { name: "consolidate", run: (a, s, r, c, i) => consolidatePhase(a, s, r, c, i, { keepGroups }) },
           { name: "deduplicate", run: deduplicatePhase },
-          { name: "sort", run: sortPhase },
+          { name: "sort", run: (a, s, r, c, i) => sortPhase(a, s, r, c, i, { keepGroups }) },
         ],
       };
       for (const phase of phaseMap[action]) {
