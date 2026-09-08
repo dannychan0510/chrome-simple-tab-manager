@@ -80,6 +80,42 @@ export function createBrowserAdapter(api, options = {}) {
     return count;
   }
 
+  async function unpin(tabIds) {
+    let count = 0;
+    for (const id of tabIds) {
+      if (!api.tabs.update) continue;
+      await api.tabs.update(id, { pinned: false });
+      const tab = await readTab(api, id);
+      if (tab && !tab.pinned) count += 1;
+    }
+    await refresh();
+    return count;
+  }
+
+  async function readGroupMeta(groupId) {
+    if (!Number.isInteger(groupId) || groupId < 0 || !api.tabGroups?.get) return null;
+    try { return await api.tabGroups.get(groupId); } catch { return null; }
+  }
+
+  async function regroupTabs(tabIds, meta, windowId) {
+    if (!tabIds.length || !api.tabs.group) return null;
+    let targetGroupId = null;
+    if (api.tabGroups?.query) {
+      const existing = await api.tabGroups.query({ windowId }).catch(() => []);
+      const wantedTitle = (meta.title || "").toLowerCase();
+      const match = existing.find((group) => (group.title || "").toLowerCase() === wantedTitle);
+      if (match) targetGroupId = match.id;
+    }
+    if (targetGroupId == null) {
+      targetGroupId = await api.tabs.group({ tabIds, createProperties: { windowId } });
+      if (api.tabGroups?.update) await api.tabGroups.update(targetGroupId, { title: meta.title || "", color: meta.color || "grey" });
+    } else {
+      await api.tabs.group({ tabIds, groupId: targetGroupId });
+    }
+    await refresh();
+    return targetGroupId;
+  }
+
   async function move(tabIds, properties, expectation = null) {
     const movedIds = [];
     for (const batch of chunkIds(tabIds)) {
@@ -148,5 +184,5 @@ export function createBrowserAdapter(api, options = {}) {
     await storage.set({ [key]: state });
   }
 
-  return { capture, readCaptured, ungroup, move, remove, activate, readOperationState, writeOperationState };
+  return { capture, readCaptured, ungroup, unpin, regroupTabs, readGroupMeta, move, remove, activate, readOperationState, writeOperationState };
 }

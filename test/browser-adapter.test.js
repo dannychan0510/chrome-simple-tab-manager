@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createBrowserAdapter } from "../src/browser-adapter.js";
+import { createFakeBrowser } from "./support/fake-browser.js";
 
 test("move retries a temporary drag failure and normalizes one returned tab", async () => {
   let attempts = 0;
@@ -78,4 +79,37 @@ test("ungroup counts only tabs confirmed outside groups", async () => {
   };
   const adapter = createBrowserAdapter(api);
   assert.equal(await adapter.ungroup([1, 2]), 1);
+});
+
+test("unpin clears pinned state and counts confirmed tabs", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [{ id: 11, pinned: true }, { id: 12, pinned: true }] }]);
+  const adapter = createBrowserAdapter(api);
+  const count = await adapter.unpin([11, 12]);
+  assert.equal(count, 2);
+  assert.equal((await api.tabs.get(11)).pinned, false);
+});
+
+test("regroupTabs creates a new group with the source title and color when no match exists", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [{ id: 11 }] }]);
+  const adapter = createBrowserAdapter(api);
+  const groupId = await adapter.regroupTabs([11], { title: "Research", color: "blue" }, 1);
+  assert.equal((await api.tabs.get(11)).groupId, groupId);
+  assert.deepEqual(await api.tabGroups.get(groupId), { id: groupId, title: "Research", color: "blue", collapsed: false, windowId: 1 });
+});
+
+test("regroupTabs reuses an existing group with a case-insensitively matching title", async () => {
+  const api = createFakeBrowser(
+    [{ id: 1, type: "normal", tabs: [{ id: 11 }, { id: 12 }] }],
+    { groups: [{ id: 500, title: "research", color: "red", windowId: 1 }] },
+  );
+  const adapter = createBrowserAdapter(api);
+  const groupId = await adapter.regroupTabs([12], { title: "Research", color: "blue" }, 1);
+  assert.equal(groupId, 500);
+  assert.equal((await api.tabGroups.get(500)).color, "red");
+});
+
+test("readGroupMeta returns null for an ungrouped tab's groupId", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [{ id: 11 }] }]);
+  const adapter = createBrowserAdapter(api);
+  assert.equal(await adapter.readGroupMeta(-1), null);
 });

@@ -23,10 +23,13 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
       ...tab,
     })),
   }));
+  const groups = (options.groups || []).map((group) => ({ collapsed: false, color: "grey", title: "", ...group }));
+  let nextGroupId = 1000;
   const calls = [];
   const session = {};
   const getWindow = (id) => windows.find((window) => window.id === id);
   const getTab = (id) => windows.flatMap(({ tabs }) => tabs).find((tab) => tab.id === id);
+  const getGroup = (id) => groups.find((group) => group.id === id);
   const normalize = () => windows.forEach((window) => window.tabs.forEach((tab, index) => { tab.windowId = window.id; tab.index = index; tab.incognito = window.incognito; }));
   const api = {
     calls,
@@ -93,7 +96,38 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
           const window = getWindow(tab.windowId);
           window.tabs.forEach((candidate) => { candidate.active = candidate.id === id; });
         }
+        if (typeof properties.pinned === "boolean") tab.pinned = properties.pinned;
         return { ...tab };
+      },
+      async group({ tabIds, groupId, createProperties }) {
+        calls.push({ name: "tabs.group", tabIds: [...tabIds], groupId, createProperties });
+        let resultGroupId = groupId;
+        if (resultGroupId == null) {
+          resultGroupId = nextGroupId++;
+          const windowId = createProperties?.windowId ?? getTab(tabIds[0])?.windowId;
+          groups.push({ id: resultGroupId, title: "", color: "grey", collapsed: false, windowId });
+        }
+        for (const id of tabIds) { const tab = getTab(id); if (tab) tab.groupId = resultGroupId; }
+        return resultGroupId;
+      },
+    },
+    tabGroups: {
+      async get(groupId) {
+        calls.push({ name: "tabGroups.get", groupId });
+        const group = getGroup(groupId);
+        if (!group) throw new Error(`No group with id: ${groupId}`);
+        return { ...group };
+      },
+      async query(queryInfo = {}) {
+        calls.push({ name: "tabGroups.query", queryInfo });
+        return groups.filter((group) => queryInfo.windowId == null || group.windowId === queryInfo.windowId).map((group) => ({ ...group }));
+      },
+      async update(groupId, properties) {
+        calls.push({ name: "tabGroups.update", groupId, properties: { ...properties } });
+        const group = getGroup(groupId);
+        if (!group) throw new Error(`No group with id: ${groupId}`);
+        Object.assign(group, properties);
+        return { ...group };
       },
     },
     storage: { session: {
@@ -101,6 +135,7 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
       async set(values) { calls.push({ name: "storage.session.set", values }); Object.assign(session, values); },
     } },
     snapshotWindow(id) { const window = getWindow(id); return { ...window, tabs: window.tabs.map((tab) => ({ ...tab })) }; },
+    snapshotGroup(id) { const group = getGroup(id); return group ? { ...group } : null; },
   };
   normalize();
   return api;
