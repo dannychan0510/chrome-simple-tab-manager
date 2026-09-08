@@ -343,8 +343,8 @@ test("consolidate rejects a move placed after the existing pinned boundary", asy
   api.tabs.move = (ids, properties) => originalMove(ids, { ...properties, index: -1 });
   const result = await createTabManager(api).run("consolidate", 1);
   assert.notEqual(result.status, "complete");
-  assert.equal(result.moved, 0);
-  assert.match(result.message, /placement confirmed 0/i);
+  assert.equal(result.moved, 1);
+  assert.match(result.message, /Tabs moved 1 of 1 tabs/i);
 });
 
 test("deduplicate preserves the target when a pinned survivor loses its pinned state", async () => {
@@ -365,4 +365,56 @@ test("deduplicate preserves the target when a pinned survivor loses its pinned s
   assert.notEqual(result.status, "complete");
   assert.equal(result.removed, 0);
   assert.equal(api.calls.some(({ name }) => name === "tabs.remove"), false);
+});
+
+test("unpinned consolidation rejects placement before the pinned boundary without anchors", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target-pinned.test/", pinned: true, active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://source-unpinned.test/" }] },
+  ]);
+  const originalMove = api.tabs.move;
+  const originalWindowGet = api.windows.get;
+  let moved = false;
+  api.tabs.move = async (ids, properties) => { const result = await originalMove(ids, properties); moved = true; return result; };
+  api.windows.get = async (...args) => {
+    const window = await originalWindowGet(...args);
+    if (moved && window.id === 1 && window.tabs) window.tabs = window.tabs.sort((a, b) => (a.id === 2 ? -1 : b.id === 2 ? 1 : a.index - b.index)).map((tab, index) => ({ ...tab, index }));
+    return window;
+  };
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.notEqual(result.status, "complete");
+  assert.equal(result.moved, 0);
+  assert.match(result.message, /placement confirmed 0/i);
+});
+
+test("mixed placement failure reports individually confirmed IDs", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target-pinned.test/", pinned: true, active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://source-a.test/" }, { id: 3, url: "https://source-b.test/" }] },
+  ]);
+  const originalMove = api.tabs.move;
+  const originalWindowGet = api.windows.get;
+  let moved = false;
+  api.tabs.move = async (ids, properties) => { const result = await originalMove(ids, properties); moved = true; return result; };
+  api.windows.get = async (...args) => {
+    const window = await originalWindowGet(...args);
+    if (moved && window.id === 1 && window.tabs) window.tabs = window.tabs.sort((a, b) => (a.id === 2 ? -1 : b.id === 2 ? 1 : a.index - b.index)).map((tab, index) => ({ ...tab, index }));
+    return window;
+  };
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.equal(result.status, "partial");
+  assert.equal(result.moved, 1);
+  assert.match(result.message, /Tabs moved 1 of 2 tabs/);
+});
+
+test("unpinned placement verification covers batches larger than fifty", async () => {
+  const sourceTabs = Array.from({ length: 101 }, (_, index) => ({ id: index + 2, url: `https://source-${index}.test/` }));
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target-pinned.test/", pinned: true, active: true }] },
+    { id: 2, type: "normal", tabs: sourceTabs },
+  ]);
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.equal(result.status, "complete");
+  assert.equal(result.moved, 101);
+  assert.deepEqual(api.snapshotWindow(1).tabs.slice(1).map(({ id }) => id), sourceTabs.map(({ id }) => id));
 });

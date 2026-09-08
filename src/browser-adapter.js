@@ -97,10 +97,12 @@ export function createBrowserAdapter(api, options = {}) {
       }
       if (response === undefined && lastError) throw lastError;
       const returned = normalizeMovedTabs(response).map((tab) => tab?.id).filter(Number.isInteger);
-      const confirmed = verifyMove ? await verifyMove(returned, properties, expectation) : returned;
+      const verification = verifyMove ? await verifyMove(returned, properties, expectation) : returned;
+      const confirmed = Array.isArray(verification) ? verification : verification.confirmed;
+      const placementValid = Array.isArray(verification) || verification.valid !== false;
       const confirmedSet = new Set(confirmed);
       const missing = batch.filter((id) => !confirmedSet.has(id));
-      if (missing.length) {
+      if (missing.length || !placementValid) {
         const error = new Error(`Tabs moved ${confirmed.length} of ${batch.length} tabs; live placement confirmed ${confirmed.length}.`);
         error.confirmedMovedIds = [...movedIds, ...confirmed];
         error.requestedMovedIds = [...movedIds, ...batch];

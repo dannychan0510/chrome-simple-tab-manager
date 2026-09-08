@@ -239,15 +239,22 @@ export function createTabManager(api, options = {}) {
           if (expectation?.pinnedById?.has(id) && Boolean(tab.pinned) !== expectation.pinnedById.get(id)) return false;
           if (expectation?.section === "pinned" && !tab.pinned) return false;
           if (expectation?.section === "unpinned" && tab.pinned) return false;
+          const position = liveTabs.findIndex((candidate) => candidate.id === id);
+          const pinnedPositions = liveTabs.map((candidate, index) => candidate.pinned ? index : -1).filter((index) => index >= 0);
+          const lastPinnedBoundary = pinnedPositions.length ? Math.max(...pinnedPositions) + 1 : 0;
+          const firstUnpinned = liveTabs.findIndex((candidate) => !candidate.pinned);
+          if (expectation?.section === "pinned" && firstUnpinned >= 0 && position >= firstUnpinned) return false;
+          if (expectation?.section === "unpinned" && position < lastPinnedBoundary) return false;
           return true;
         });
+        let valid = confirmed.length === ids.length;
         if (expectation?.orderIds) {
           const positions = expectation.orderIds.map((id) => liveTabs.findIndex((tab) => tab.id === id));
-          if (positions.some((position) => position < 0) || positions.some((position, index) => index > 0 && position <= positions[index - 1])) return [];
+          if (positions.some((position) => position < 0) || positions.some((position, index) => index > 0 && position <= positions[index - 1])) valid = false;
           const anchors = expectation.anchorIds?.map((id) => liveTabs.findIndex((tab) => tab.id === id)).filter((position) => position >= 0) || [];
-          if (anchors.length && (expectation.place === "before" ? positions.some((position) => position >= Math.min(...anchors)) : positions.some((position) => position <= Math.max(...anchors)))) return [];
+          if (anchors.length && (expectation.place === "before" ? positions.some((position) => position >= Math.min(...anchors)) : positions.some((position) => position <= Math.max(...anchors)))) valid = false;
         }
-        return confirmed;
+        return { confirmed, valid };
       },
       onBatch: async () => {
         lease.lastUpdatedAt = clock();
