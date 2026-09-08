@@ -3,7 +3,7 @@
   "name": "Simple Tab Manager",
   "version": "2.0.0",
   "description": "Bring tabs together, remove duplicate URLs, and sort them by domain.",
-  "permissions": ["tabs", "storage"],
+  "permissions": ["tabs", "tabGroups", "storage"],
   "background": { "scripts": ["background.js"], "type": "module" },
   "action": {
     "default_title": "Simple Tab Manager",

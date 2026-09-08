@@ -22,7 +22,7 @@ for (const target of targets) {
   const manifest = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8"));
   if (manifest.manifest_version !== 3) throw new Error(`${target}: Manifest V3 is required`);
   if (manifest.version !== packageVersion) throw new Error(`${target}: manifest version must match package.json`);
-  if (JSON.stringify(manifest.permissions) !== JSON.stringify(["tabs", "storage"])) throw new Error(`${target}: unexpected permissions`);
+  if (JSON.stringify(manifest.permissions) !== JSON.stringify(["tabs", "tabGroups", "storage"])) throw new Error(`${target}: unexpected permissions`);
   if (target === "firefox" && JSON.stringify(manifest.browser_specific_settings?.gecko?.data_collection_permissions?.required) !== JSON.stringify(["none"])) throw new Error("Firefox data collection permission must be none");
   for (const path of required) await access(join(dir, path));
   const files = await walk(dir);

@@ -15,7 +15,7 @@ test("build creates valid Chrome and Firefox packages", async () => {
   const firefox = JSON.parse(await readFile(join(root, "dist/firefox/manifest.json"), "utf8"));
   assert.equal(chrome.manifest_version, 3);
   assert.equal(chrome.background.service_worker, "background.js");
-  assert.deepEqual(chrome.permissions, ["tabs", "storage"]);
+  assert.deepEqual(chrome.permissions, ["tabs", "tabGroups", "storage"]);
   assert.deepEqual(firefox.background.scripts, ["background.js"]);
   assert.deepEqual(firefox.browser_specific_settings.gecko.data_collection_permissions.required, ["none"]);
   assert.equal(firefox.browser_specific_settings.gecko.id, "{a69d42cb-0283-4e28-9a86-47e4274dc993}");
