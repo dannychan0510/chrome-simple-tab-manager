@@ -242,13 +242,14 @@ export function createTabManager(api, options = {}) {
   async function sortPhase(opAdapter, scope, result, changedIds, intentionalRemovals, { keepGroups = false } = {}) {
     let previousOrder = null;
     let iterations = 0;
+    const groupTitleById = new Map();
     while (true) {
       const tabs = (await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals)).filter((tab) => tab.windowId === scope.targetWindowId);
       addSkippedSplit(result, tabs.filter(isSplitViewTab));
-      let groupTitleById = new Map();
       if (keepGroups) {
         const groupIds = [...new Set(tabs.filter((tab) => Number.isInteger(tab.groupId) && tab.groupId >= 0).map((tab) => tab.groupId))];
         for (const groupId of groupIds) {
+          if (groupTitleById.has(groupId)) continue;
           const meta = await opAdapter.readGroupMeta(groupId);
           if (meta) groupTitleById.set(groupId, meta.title || "");
         }

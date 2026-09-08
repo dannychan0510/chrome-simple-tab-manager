@@ -474,6 +474,19 @@ test("consolidate unpins a tab first when keepPins is false", async () => {
   assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 2).pinned, false);
 });
 
+test("sort interleaves a formerly pinned tab into its domain position when keepPins is false", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [
+    { id: 1, url: "https://z.test/", active: true },
+    { id: 2, url: "https://n.test/", pinned: true },
+    { id: 3, url: "https://b.test/" },
+  ] }]);
+  const result = await createTabManager(api).run("sort", 1, { keepPins: false });
+  assert.equal(result.status, "complete");
+  assert.equal(result.unpinned, 1);
+  assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 2).pinned, false);
+  assert.deepEqual(api.snapshotWindow(1).tabs.map(({ id }) => id), [3, 2, 1]);
+});
+
 test("consolidate moves a tab group as a unit and re-creates it in the target window", async () => {
   const api = createFakeBrowser(
     [
@@ -508,6 +521,25 @@ test("consolidate adds a moved group to an existing same-titled group in the tar
   const targetTabs = api.snapshotWindow(1).tabs;
   assert.equal(targetTabs.find(({ id }) => id === 2).groupId, 20);
   assert.equal((await api.tabGroups.get(20)).color, "red");
+});
+
+test("consolidate keeps two different untitled source groups distinct in the target window", async () => {
+  const api = createFakeBrowser(
+    [
+      { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+      { id: 2, type: "normal", tabs: [{ id: 2, url: "https://a.test/", groupId: 10 }] },
+      { id: 3, type: "normal", tabs: [{ id: 3, url: "https://b.test/", groupId: 11 }] },
+    ],
+    { groups: [{ id: 10, title: "", color: "blue", windowId: 2 }, { id: 11, title: "", color: "red", windowId: 3 }] },
+  );
+  const result = await createTabManager(api).run("consolidate", 1, { keepGroups: true });
+  assert.equal(result.status, "complete");
+  const targetTabs = api.snapshotWindow(1).tabs;
+  const groupIdOf2 = targetTabs.find(({ id }) => id === 2).groupId;
+  const groupIdOf3 = targetTabs.find(({ id }) => id === 3).groupId;
+  assert.notEqual(groupIdOf2, -1);
+  assert.notEqual(groupIdOf3, -1);
+  assert.notEqual(groupIdOf2, groupIdOf3);
 });
 
 test("organize keeps pinned tabs pinned and groups intact by default", async () => {

@@ -108,6 +108,16 @@ test("regroupTabs reuses an existing group with a case-insensitively matching ti
   assert.equal((await api.tabGroups.get(500)).color, "red");
 });
 
+test("regroupTabs never matches an empty title against another empty-titled group", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [{ id: 11 }, { id: 12 }] }]);
+  const adapter = createBrowserAdapter(api);
+  const firstGroupId = await adapter.regroupTabs([11], { title: "", color: "blue" }, 1);
+  const secondGroupId = await adapter.regroupTabs([12], { title: "", color: "red" }, 1);
+  assert.notEqual(firstGroupId, secondGroupId);
+  assert.equal((await api.tabGroups.get(firstGroupId)).color, "blue");
+  assert.equal((await api.tabGroups.get(secondGroupId)).color, "red");
+});
+
 test("readGroupMeta returns null for an ungrouped tab's groupId", async () => {
   const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [{ id: 11 }] }]);
   const adapter = createBrowserAdapter(api);

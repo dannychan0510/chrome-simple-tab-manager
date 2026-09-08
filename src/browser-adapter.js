@@ -100,9 +100,9 @@ export function createBrowserAdapter(api, options = {}) {
   async function regroupTabs(tabIds, meta, windowId) {
     if (!tabIds.length || !api.tabs.group) return null;
     let targetGroupId = null;
-    if (api.tabGroups?.query) {
+    const wantedTitle = (meta.title || "").toLowerCase();
+    if (api.tabGroups?.query && wantedTitle) {
       const existing = await api.tabGroups.query({ windowId }).catch(() => []);
-      const wantedTitle = (meta.title || "").toLowerCase();
       const match = existing.find((group) => (group.title || "").toLowerCase() === wantedTitle);
       if (match) targetGroupId = match.id;
     }
