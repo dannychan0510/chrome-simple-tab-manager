@@ -17,21 +17,29 @@ export function captureScope(windows, targetWindowId) {
   };
 }
 
-export function planConsolidation(tabs, targetWindowId) {
+export function planConsolidation(tabs, targetWindowId, { keepGroups = false } = {}) {
   const groupedIds = [];
   const pinnedIds = [];
   const unpinnedIds = [];
   const skippedSplitIds = [];
+  const groupBuckets = new Map();
   for (const tab of tabs) {
     if (tab.windowId === targetWindowId) continue;
-    if (isSplitViewTab(tab)) {
-      skippedSplitIds.push(tab.id);
+    if (isSplitViewTab(tab)) { skippedSplitIds.push(tab.id); continue; }
+    const isGrouped = Number.isInteger(tab.groupId) && tab.groupId >= 0;
+    if (isGrouped) groupedIds.push(tab.id);
+    if (keepGroups && isGrouped) {
+      if (!groupBuckets.has(tab.groupId)) groupBuckets.set(tab.groupId, []);
+      groupBuckets.get(tab.groupId).push(tab);
       continue;
     }
-    if (Number.isInteger(tab.groupId) && tab.groupId >= 0) groupedIds.push(tab.id);
     (tab.pinned ? pinnedIds : unpinnedIds).push(tab.id);
   }
-  return { groupedIds, pinnedIds, unpinnedIds, skippedSplitIds };
+  const groupsToMove = [...groupBuckets.entries()].map(([groupId, groupTabs]) => ({
+    groupId,
+    tabIds: groupTabs.slice().sort((a, b) => a.index - b.index).map(({ id }) => id),
+  }));
+  return { groupedIds, pinnedIds, unpinnedIds, skippedSplitIds, groupsToMove };
 }
 
 export function planDuplicateRemoval(tabs, scope) {

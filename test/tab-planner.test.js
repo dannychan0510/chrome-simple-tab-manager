@@ -93,3 +93,22 @@ test("planSort falls back to today's flattened sort when keepGroups is omitted",
   assert.deepEqual(plan.orderedIds, [2, 1]);
   assert.deepEqual(plan.groupedIds, [1]);
 });
+
+test("planConsolidation groups grouped tabs into move units when keepGroups is true", () => {
+  const tabs = [
+    { id: 1, windowId: 2, index: 0, pinned: false, groupId: 10 },
+    { id: 2, windowId: 2, index: 1, pinned: false, groupId: -1 },
+    { id: 3, windowId: 2, index: 2, pinned: false, groupId: 10 },
+  ];
+  const plan = planConsolidation(tabs, 1, { keepGroups: true });
+  assert.deepEqual(plan.groupsToMove, [{ groupId: 10, tabIds: [1, 3] }]);
+  assert.deepEqual(plan.unpinnedIds, [2]);
+});
+
+test("planConsolidation without keepGroups keeps today's flat grouped-tab handling", () => {
+  const tabs = [{ id: 1, windowId: 2, index: 0, pinned: false, groupId: 10 }];
+  const plan = planConsolidation(tabs, 1);
+  assert.deepEqual(plan.groupsToMove, []);
+  assert.deepEqual(plan.unpinnedIds, [1]);
+  assert.deepEqual(plan.groupedIds, [1]);
+});
