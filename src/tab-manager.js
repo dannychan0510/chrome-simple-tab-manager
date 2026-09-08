@@ -131,6 +131,7 @@ export function createTabManager(api, options = {}) {
     addSkippedSplit(result, tabs.filter(isSplitViewTab));
     let plan = planDuplicateRemoval(tabs, scope);
     if (plan.protectTargetWithTabId) {
+      await ensureTarget(scope);
       await moveWithCount(opAdapter, [plan.protectTargetWithTabId], { windowId: scope.targetWindowId, index: -1 }, result);
       tabs = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
       addSkippedSplit(result, tabs.filter(isSplitViewTab));
