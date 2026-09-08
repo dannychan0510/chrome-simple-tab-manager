@@ -28,14 +28,15 @@ test("moves are split into batches of fifty", async () => {
   assert.deepEqual(calls.map((batch) => batch.length), [50, 50, 1]);
 });
 
-test("operation state uses separate regular and private keys", async () => {
+test("private operation state stays in memory and never reaches browser storage", async () => {
   const writes = [];
   const api = { tabs: {}, storage: { session: { get: async () => ({}), set: async (value) => writes.push(value) } } };
   const adapter = createBrowserAdapter(api);
   await adapter.writeOperationState(false, { status: "running" });
-  await adapter.writeOperationState(true, { status: "running" });
+  await adapter.writeOperationState(true, { status: "private-running" });
   assert.deepEqual(Object.keys(writes[0]), ["operation_regular"]);
-  assert.deepEqual(Object.keys(writes[1]), ["operation_private"]);
+  assert.equal(writes.length, 1);
+  assert.deepEqual(await createBrowserAdapter(api).readOperationState(true), { status: "private-running" });
 });
 
 test("readCaptured filters moved tabs and reports closed ids", async () => {

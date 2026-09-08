@@ -3,6 +3,7 @@ import { captureScope } from "./core/tab-planner.js";
 export const BATCH_SIZE = 50;
 export const MAX_MOVE_ATTEMPTS = 5;
 export const MOVE_RETRY_DELAY_MS = 50;
+const privateOperationStates = new WeakMap();
 
 export function chunkIds(ids, size = BATCH_SIZE) {
   const chunks = [];
@@ -132,12 +133,17 @@ export function createBrowserAdapter(api, options = {}) {
   }
 
   async function readOperationState(incognito) {
+    if (incognito) return privateOperationStates.get(api) ?? null;
     const key = incognito ? "operation_private" : "operation_regular";
     const result = await storage.get(key);
     return result[key] ?? null;
   }
 
   async function writeOperationState(incognito, state) {
+    if (incognito) {
+      privateOperationStates.set(api, state);
+      return;
+    }
     const key = incognito ? "operation_private" : "operation_regular";
     await storage.set({ [key]: state });
   }

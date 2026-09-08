@@ -65,7 +65,7 @@ export function createTabManager(api, options = {}) {
   const adapter = createBrowserAdapter(api, { delay: options.delay });
 
   async function assertTarget(targetWindowId) {
-    const window = await api.windows.get(targetWindowId, { populate: true });
+    const window = await api.windows.get(targetWindowId, { populate: false });
     if (!window || window.type !== "normal") throw new Error("Choose a regular browser window.");
     return window;
   }

@@ -1,0 +1,51 @@
+name: Build browser store artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-store-artifacts-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Verify source and builds
+        run: npm run verify
+
+      - name: Match tag to package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npm run release:check-version -- "${GITHUB_REF_NAME}"
+
+      - name: Run Mozilla extension lint
+        run: npx -y web-ext@10.6.0 lint --source-dir dist/firefox --warnings-as-errors
+
+      - name: Build store and source archives
+        run: npm run release:package
+
+      - name: Upload release archives
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: simple-tab-manager-store-artifacts
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30

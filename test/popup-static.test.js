@@ -10,6 +10,7 @@ test("popup exposes all four actions with accessible status", () => {
   assert.match(html, /role="status"/);
   assert.match(html, /aria-live="polite"/);
   assert.doesNotMatch(html, /(?:src|href)=['"]https?:/);
+  assert.match(html, /Open-tab URLs are processed locally and never sent\./);
 });
 test("popup styles cover themes, focus, motion, and forced colors", () => {
   for (const token of ["prefers-reduced-motion", "prefers-color-scheme", "forced-colors", ":focus-visible", "@font-face"]) assert.match(css, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));

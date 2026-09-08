@@ -27,7 +27,7 @@ never URLs or titles.
 
 ## Development
 
-Use Node.js 20 or newer.
+Use Node.js 22 or newer.
 
 ```sh
 npm install
@@ -54,3 +54,15 @@ license files, and checks all toolbar icon dimensions.
 
 The extension uses the SIL Open Font License for the bundled IBM Plex Sans
 font. The license text is included at `LICENSES/IBM-Plex-Sans.txt`.
+
+## Store publishing
+
+See `PUBLISHING.md` for the current Chrome Web Store and Mozilla Add-ons
+submission checklist. Store copy is in `store-listing`, and privacy-safe listing
+images are in `store-assets`.
+
+Build the upload and Mozilla source archives with:
+
+```sh
+npm run release:package
+```

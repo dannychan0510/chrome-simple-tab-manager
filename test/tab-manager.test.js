@@ -85,7 +85,15 @@ test("regular and private operations keep separate leases while running together
   assert.equal(privateResult.status, "complete");
   const writes = api.calls.filter(({ name }) => name === "storage.session.set").map(({ values }) => Object.keys(values)[0]);
   assert.ok(writes.includes("operation_regular"));
-  assert.ok(writes.includes("operation_private"));
+  assert.equal(writes.includes("operation_private"), false);
+  assert.equal((await manager.getStatus(2)).status, "complete");
+});
+
+test("a private operation never writes its lease to browser storage", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", incognito: true, tabs: [{ id: 1, url: "https://private.example/", active: true }] }]);
+  const result = await createTabManager(api).run("sort", 1);
+  assert.equal(result.status, "complete");
+  assert.equal(api.calls.some(({ name }) => name === "storage.session.set"), false);
 });
 
 test("pinned consolidation preserves captured order across batches", async () => {
@@ -208,6 +216,14 @@ test("completed operation messages persist in the session lease", async () => {
   const state = await manager.getStatus(1);
   assert.equal(state.status, result.status);
   assert.equal(state.message, result.message);
+});
+
+test("getStatus does not populate the target window", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [{ id: 1, url: "https://private.example/", active: true }] }]);
+  await createTabManager(api).getStatus(1);
+  const getCall = api.calls.find(({ name }) => name === "windows.get");
+  assert.equal(getCall.options.populate, false);
+  assert.equal(api.calls.some(({ name }) => name === "tabs.get" || name === "windows.getAll"), false);
 });
 
 test("getStatus interrupts a stale running lease after a background restart", async () => {
