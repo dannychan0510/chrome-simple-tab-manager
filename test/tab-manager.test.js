@@ -333,3 +333,36 @@ test("sort terminates when ungroup makes no progress", async () => {
   assert.equal(api.calls.some(({ name }) => name === "tabs.move"), false);
   assert.match(result.message, /ungroup.*progress/i);
 });
+
+test("consolidate rejects a move placed after the existing pinned boundary", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target-pinned.test/", pinned: true, active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://source-pinned.test/", pinned: true }] },
+  ]);
+  const originalMove = api.tabs.move;
+  api.tabs.move = (ids, properties) => originalMove(ids, { ...properties, index: -1 });
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.notEqual(result.status, "complete");
+  assert.equal(result.moved, 0);
+  assert.match(result.message, /placement confirmed 0/i);
+});
+
+test("deduplicate preserves the target when a pinned survivor loses its pinned state", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://same.test/", active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://same.test/", pinned: true }] },
+  ]);
+  const originalMove = api.tabs.move;
+  const originalWindowGet = api.windows.get;
+  let moved = false;
+  api.tabs.move = async (ids, properties) => { const result = await originalMove(ids, properties); moved = true; return result; };
+  api.windows.get = async (...args) => {
+    const window = await originalWindowGet(...args);
+    if (moved && window.tabs) window.tabs = window.tabs.map((tab) => tab.id === 2 ? { ...tab, pinned: false } : tab);
+    return window;
+  };
+  const result = await createTabManager(api).run("deduplicate", 1);
+  assert.notEqual(result.status, "complete");
+  assert.equal(result.removed, 0);
+  assert.equal(api.calls.some(({ name }) => name === "tabs.remove"), false);
+});

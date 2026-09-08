@@ -39,9 +39,9 @@ function addSkippedSplit(result, tabs) {
   }
 }
 
-async function moveWithCount(opAdapter, ids, properties, result) {
+async function moveWithCount(opAdapter, ids, properties, result, expectation = null) {
   try {
-    const moved = await opAdapter.move(ids, properties);
+    const moved = await opAdapter.move(ids, properties, expectation);
     for (const id of moved) result[MOVED_IDS].add(id);
     result.moved = result[MOVED_IDS].size;
     return moved;
@@ -135,7 +135,14 @@ export function createTabManager(api, options = {}) {
         }
         const batch = (pinned ? available.slice(-BATCH_SIZE) : available.slice(0, BATCH_SIZE));
         await ensureTarget(scope);
-        await moveWithCount(opAdapter, batch, { windowId: scope.targetWindowId, index: pinned ? 0 : -1 }, result);
+        const targetSection = tabs.filter((tab) => tab.windowId === scope.targetWindowId && Boolean(tab.pinned) === pinned).map(({ id }) => id);
+        await moveWithCount(opAdapter, batch, { windowId: scope.targetWindowId, index: pinned ? 0 : -1 }, result, {
+          section: pinned ? "pinned" : "unpinned",
+          pinnedById: new Map(batch.map((id) => [id, pinned])),
+          orderIds: batch,
+          anchorIds: targetSection,
+          place: pinned ? "before" : "after",
+        });
         batch.forEach((id) => pending.delete(id));
       }
     };
@@ -149,7 +156,10 @@ export function createTabManager(api, options = {}) {
     let plan = planDuplicateRemoval(tabs, scope);
     if (plan.protectTargetWithTabId) {
       await ensureTarget(scope);
-      await moveWithCount(opAdapter, [plan.protectTargetWithTabId], { windowId: scope.targetWindowId, index: -1 }, result);
+      const protectedTab = tabs.find((tab) => tab.id === plan.protectTargetWithTabId);
+      await moveWithCount(opAdapter, [plan.protectTargetWithTabId], { windowId: scope.targetWindowId, index: -1 }, result, {
+        pinnedById: new Map([[plan.protectTargetWithTabId, Boolean(protectedTab?.pinned)]]),
+      });
       tabs = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
       addSkippedSplit(result, tabs.filter(isSplitViewTab));
       plan = planDuplicateRemoval(tabs, scope);
@@ -195,7 +205,9 @@ export function createTabManager(api, options = {}) {
       if (order === previousOrder || ++iterations > Math.max(1, tabs.length * 2)) throw new Error("Sorting made no progress after a tab move.");
       const id = plan.orderedIds[moveIndex];
       await ensureTarget(scope);
-      await moveWithCount(opAdapter, [id], { windowId: scope.targetWindowId, index: moveIndex }, result);
+      await moveWithCount(opAdapter, [id], { windowId: scope.targetWindowId, index: moveIndex }, result, {
+        pinnedById: new Map([[id, Boolean(tabs.find((tab) => tab.id === id)?.pinned)]]),
+      });
       previousOrder = order;
     }
   }
@@ -218,11 +230,22 @@ export function createTabManager(api, options = {}) {
     await adapter.writeOperationState(incognito, lease);
     const opAdapter = createBrowserAdapter(api, {
       delay: options.delay,
-      verifyMove: async (ids, properties) => {
-        const confirmed = [];
-        for (const id of ids) {
-          const tab = await api.tabs.get(id).catch(() => null);
-          if (tab?.windowId === properties.windowId) confirmed.push(id);
+      verifyMove: async (ids, properties, expectation) => {
+        const target = await api.windows.get(properties.windowId, { populate: true }).catch(() => null);
+        const liveTabs = target?.tabs?.slice().sort((a, b) => a.index - b.index) || [];
+        const confirmed = ids.filter((id) => {
+          const tab = liveTabs.find((candidate) => candidate.id === id);
+          if (!tab || tab.windowId !== properties.windowId) return false;
+          if (expectation?.pinnedById?.has(id) && Boolean(tab.pinned) !== expectation.pinnedById.get(id)) return false;
+          if (expectation?.section === "pinned" && !tab.pinned) return false;
+          if (expectation?.section === "unpinned" && tab.pinned) return false;
+          return true;
+        });
+        if (expectation?.orderIds) {
+          const positions = expectation.orderIds.map((id) => liveTabs.findIndex((tab) => tab.id === id));
+          if (positions.some((position) => position < 0) || positions.some((position, index) => index > 0 && position <= positions[index - 1])) return [];
+          const anchors = expectation.anchorIds?.map((id) => liveTabs.findIndex((tab) => tab.id === id)).filter((position) => position >= 0) || [];
+          if (anchors.length && (expectation.place === "before" ? positions.some((position) => position >= Math.min(...anchors)) : positions.some((position) => position <= Math.max(...anchors)))) return [];
         }
         return confirmed;
       },

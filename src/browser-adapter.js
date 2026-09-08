@@ -79,7 +79,7 @@ export function createBrowserAdapter(api, options = {}) {
     return count;
   }
 
-  async function move(tabIds, properties) {
+  async function move(tabIds, properties, expectation = null) {
     const movedIds = [];
     for (const batch of chunkIds(tabIds)) {
       if (batch.length === 0) continue;
@@ -97,7 +97,7 @@ export function createBrowserAdapter(api, options = {}) {
       }
       if (response === undefined && lastError) throw lastError;
       const returned = normalizeMovedTabs(response).map((tab) => tab?.id).filter(Number.isInteger);
-      const confirmed = verifyMove ? await verifyMove(returned, properties) : returned;
+      const confirmed = verifyMove ? await verifyMove(returned, properties, expectation) : returned;
       const confirmedSet = new Set(confirmed);
       const missing = batch.filter((id) => !confirmedSet.has(id));
       if (missing.length) {
