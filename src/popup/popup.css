@@ -76,8 +76,38 @@ button { font: inherit; }
 .action-row span:nth-child(2) { flex: 1; }
 .row-chevron { color: var(--muted); font-size: 21px; line-height: 1; }
 .settings-panel { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
+.settings-panel[hidden] { display: none; }
 .settings-toggle { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
-.settings-toggle input { margin-top: 3px; flex: 0 0 auto; width: 16px; height: 16px; accent-color: var(--accent); }
+.settings-toggle input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+  margin: 2px 0 0;
+  border-radius: 999px;
+  background: var(--line);
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.settings-toggle input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  transition: transform .15s ease;
+}
+.settings-toggle input[type="checkbox"]:checked { background: var(--accent); }
+.settings-toggle input[type="checkbox"]:checked::before { transform: translateX(14px); }
+.settings-toggle input[type="checkbox"]:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+@media (forced-colors: active) {
+  .settings-toggle input[type="checkbox"] { appearance: auto; forced-color-adjust: auto; }
+}
 .settings-toggle-text { display: flex; flex-direction: column; gap: 2px; }
 .settings-toggle-label { font-size: 13px; font-weight: 600; color: var(--ink); }
 .settings-toggle-description { font-size: 11.5px; color: var(--muted); }
