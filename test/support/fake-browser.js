@@ -59,6 +59,12 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
         const requested = Array.isArray(ids) ? ids : [ids];
         const moving = requested.map((id) => getTab(id)).filter(Boolean);
         if (!moving.length) return [];
+        const movingIds = new Set(moving.map((tab) => tab.id));
+        for (const tab of moving) {
+          if (!Number.isInteger(tab.groupId) || tab.groupId < 0) continue;
+          const groupmates = windows.flatMap(({ tabs }) => tabs).filter((candidate) => candidate.groupId === tab.groupId);
+          if (groupmates.some((candidate) => !movingIds.has(candidate.id))) tab.groupId = -1;
+        }
         const destination = getWindow(properties.windowId) || getWindow(moving[0].windowId);
         for (const tab of moving) {
           const source = getWindow(tab.windowId);

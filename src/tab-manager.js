@@ -270,9 +270,18 @@ export function createTabManager(api, options = {}) {
       const order = currentIds.join(",");
       if (order === previousOrder || ++iterations > Math.max(1, tabs.length * 2)) throw new Error("Sorting made no progress after a tab move.");
       const id = plan.orderedIds[moveIndex];
+      const tab = tabs.find((candidate) => candidate.id === id);
+      const groupId = keepGroups && tab && Number.isInteger(tab.groupId) && tab.groupId >= 0 ? tab.groupId : null;
+      // A lone tab moved away from its groupmates gets ejected from its group by the
+      // real browser, so a grouped tab is never moved alone: its whole group moves as
+      // one batch, landing contiguously and keeping every member grouped.
+      const moveIds = groupId != null
+        ? plan.orderedIds.filter((candidateId) => tabs.find((candidate) => candidate.id === candidateId)?.groupId === groupId)
+        : [id];
       await ensureTarget(scope);
-      await moveWithCount(opAdapter, [id], { windowId: scope.targetWindowId, index: moveIndex }, result, {
-        pinnedById: new Map([[id, Boolean(tabs.find((tab) => tab.id === id)?.pinned)]]),
+      await moveWithCount(opAdapter, moveIds, { windowId: scope.targetWindowId, index: moveIndex }, result, {
+        pinnedById: new Map(moveIds.map((moveId) => [moveId, Boolean(tabs.find((candidate) => candidate.id === moveId)?.pinned)])),
+        orderIds: moveIds,
       });
       previousOrder = order;
     }
