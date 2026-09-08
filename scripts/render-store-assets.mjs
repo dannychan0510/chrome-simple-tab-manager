@@ -124,20 +124,6 @@ function textBlock({ title, lines, accent = "#2563EB", dark = false }) {
     ${lines.map((line, index) => `<text x="74" y="${435 + index * 35}" font-family="IBM Plex Sans, Arial, sans-serif" font-size="24" fill="${muted}">${escapeXml(line)}</text>`).join("")}`;
 }
 
-function tabsDiagram({ y = 625, dark = false, mode = "domains" }) {
-  const surface = dark ? "#273240" : "#FFFFFF";
-  const line = dark ? "#405064" : "#D9E2EF";
-  const ink = dark ? "#EAF0F8" : "#334155";
-  const labels = mode === "pinned" ? ["Pinned", "Pinned", "Work", "Reading"] : ["docs.example", "docs.example", "mail.example", "notes.example"];
-  return labels.map((label, index) => {
-    const x = 74 + index * 142;
-    const pinned = mode === "pinned" && index < 2;
-    return `<rect x="${x}" y="${y}" width="128" height="46" rx="10" fill="${surface}" stroke="${line}"/>
-      ${pinned ? `<path d="M${x + 18} ${y + 14}v14m-5-9h10" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>` : `<circle cx="${x + 18}" cy="${y + 23}" r="5" fill="#78A9FF"/>`}
-      <text x="${x + 31}" y="${y + 29}" font-family="IBM Plex Sans, Arial, sans-serif" font-size="13" fill="${ink}">${label}</text>`;
-  }).join("");
-}
-
 function frame(content, { background = "#EDF3FF", dark = false } = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
     <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${background}"/><stop offset="1" stop-color="${dark ? "#18212D" : "#F8FAFD"}"/></linearGradient></defs>
@@ -167,10 +153,10 @@ const [lightPng, togetherPng, duplicatesPng, sortPng, darkPng, iconSvg] = await 
 ]);
 
 const shots = [
-  ["01-organize-all-tabs.png", frame(`${textBlock({ title: ["All your tabs.", "One tidy window."], lines: ["Bring windows together, remove exact copies,", "and sort by domain in one click."] })}${popupImage(lightPng, 760, 178)}${tabsDiagram({ mode: "domains" })}`)],
-  ["02-keep-pinned-tabs.png", frame(`${textBlock({ title: ["Pinned stays", "pinned."], lines: ["Move tabs into one window while keeping", "the pinned and unpinned sections intact."] })}${popupImage(togetherPng, 760, 178)}${tabsDiagram({ mode: "pinned" })}`, { background: "#ECF9F4" })],
-  ["03-remove-duplicates.png", frame(`${textBlock({ title: ["Keep one.", "Close the copies."], lines: ["Exact URL matches are removed safely.", "A pinned copy always wins."] })}${popupImage(duplicatesPng, 760, 178)}${tabsDiagram({ mode: "domains" })}`, { background: "#FFF4E4" })],
-  ["04-sort-by-domain.png", frame(`${textBlock({ title: ["Domains, sorted", "at a glance."], lines: ["Related sites stay together inside separate", "pinned and unpinned sections."] })}${popupImage(sortPng, 760, 178)}${tabsDiagram({ mode: "domains" })}`, { background: "#EEF0FF" })],
+  ["01-organize-all-tabs.png", frame(`${textBlock({ title: ["All your tabs.", "One tidy window."], lines: ["Bring windows together, remove exact copies,", "and sort by domain in one click."] })}${popupImage(lightPng, 760, 178)}`)],
+  ["02-keep-pinned-tabs.png", frame(`${textBlock({ title: ["Pinned stays", "pinned."], lines: ["Move tabs into one window while keeping", "the pinned and unpinned sections intact."] })}${popupImage(togetherPng, 760, 178)}`, { background: "#ECF9F4" })],
+  ["03-sort-by-domain.png", frame(`${textBlock({ title: ["Domains, sorted", "at a glance."], lines: ["Related sites stay together inside separate", "pinned and unpinned sections."] })}${popupImage(sortPng, 760, 178)}`, { background: "#EEF0FF" })],
+  ["04-remove-duplicates.png", frame(`${textBlock({ title: ["Keep one.", "Close the copies."], lines: ["Exact URL matches are removed safely.", "A pinned copy always wins."] })}${popupImage(duplicatesPng, 760, 178)}`, { background: "#FFF4E4" })],
   ["05-light-and-dark.png", frame(`${textBlock({ title: ["Clear in light", "or dark."], lines: ["Follow the browser theme or choose the", "appearance that works for you."], dark: true, accent: "#78A9FF" })}${popupImage(lightPng, 688, 240, 330, 323)}${popupImage(darkPng, 934, 330, 330, 323)}`, { background: "#202A38", dark: true })],
 ];
 for (const [name, svg] of shots) await writeSvgPng(join(screenshotOutput, name), svg, 1280, 800);
