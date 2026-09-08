@@ -210,19 +210,29 @@ export function createTabManager(api, options = {}) {
     result.survivorByRemovedId = plan.survivorByRemovedId;
   }
 
-  async function sortPhase(opAdapter, scope, result, changedIds, intentionalRemovals, options = {}) {
+  async function sortPhase(opAdapter, scope, result, changedIds, intentionalRemovals, { keepGroups = false } = {}) {
     let previousOrder = null;
     let iterations = 0;
     while (true) {
       const tabs = (await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals)).filter((tab) => tab.windowId === scope.targetWindowId);
       addSkippedSplit(result, tabs.filter(isSplitViewTab));
-      const plan = planSort(tabs);
+      let groupTitleById = new Map();
+      if (keepGroups) {
+        const groupIds = [...new Set(tabs.filter((tab) => Number.isInteger(tab.groupId) && tab.groupId >= 0).map((tab) => tab.groupId))];
+        for (const groupId of groupIds) {
+          const meta = await opAdapter.readGroupMeta(groupId);
+          if (meta) groupTitleById.set(groupId, meta.title || "");
+        }
+      }
+      const plan = planSort(tabs, { keepGroups, groupTitleById });
       if (plan.skippedForSplitView) { result.sortingSkipped = true; return; }
-      const grouped = options.keepGroups ? [] : plan.groupedIds.filter((id) => tabs.some((tab) => tab.id === id && !isSplitViewTab(tab))).slice(0, BATCH_SIZE);
-      if (grouped.length) {
-        await ensureTarget(scope);
-        await ungroupWithProgress(opAdapter, grouped, result);
-        continue;
+      if (!keepGroups) {
+        const grouped = plan.groupedIds.filter((id) => tabs.some((tab) => tab.id === id && !isSplitViewTab(tab))).slice(0, BATCH_SIZE);
+        if (grouped.length) {
+          await ensureTarget(scope);
+          await ungroupWithProgress(opAdapter, grouped, result);
+          continue;
+        }
       }
       const currentIds = tabs.slice().sort((a, b) => a.index - b.index).map(({ id }) => id);
       const moveIndex = plan.orderedIds.findIndex((id, index) => currentIds[index] !== id);

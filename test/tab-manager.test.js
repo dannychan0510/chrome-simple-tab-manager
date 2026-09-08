@@ -446,6 +446,23 @@ test("sort keeps grouped tabs grouped by default (keepGroups defaults to true)",
   assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 2).groupId, 5);
 });
 
+test("sort keeps a tab group's members together and ordered by group title when keepGroups is on", async () => {
+  const api = createFakeBrowser(
+    [{ id: 1, type: "normal", tabs: [
+      { id: 1, url: "https://zzz.test/", active: true, groupId: -1 },
+      { id: 2, url: "https://a.test/", groupId: 10 },
+      { id: 3, url: "https://aaa.test/", groupId: -1 },
+      { id: 4, url: "https://b.test/", groupId: 10 },
+    ] }],
+    { groups: [{ id: 10, title: "Research", color: "blue", windowId: 1 }] },
+  );
+  const result = await createTabManager(api).run("sort", 1, { keepGroups: true });
+  assert.equal(result.status, "complete");
+  assert.deepEqual(api.snapshotWindow(1).tabs.map(({ id }) => id), [2, 4, 3, 1]);
+  assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 2).groupId, 10);
+  assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 4).groupId, 10);
+});
+
 test("consolidate unpins a tab first when keepPins is false", async () => {
   const api = createFakeBrowser([
     { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
