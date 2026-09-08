@@ -473,3 +473,60 @@ test("consolidate unpins a tab first when keepPins is false", async () => {
   assert.equal(result.unpinned, 1);
   assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 2).pinned, false);
 });
+
+test("consolidate moves a tab group as a unit and re-creates it in the target window", async () => {
+  const api = createFakeBrowser(
+    [
+      { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+      { id: 2, type: "normal", tabs: [
+        { id: 2, url: "https://a.test/", groupId: 10 },
+        { id: 3, url: "https://b.test/", groupId: 10 },
+      ] },
+    ],
+    { groups: [{ id: 10, title: "Research", color: "blue", windowId: 2 }] },
+  );
+  const result = await createTabManager(api).run("consolidate", 1, { keepGroups: true });
+  assert.equal(result.status, "complete");
+  const targetTabs = api.snapshotWindow(1).tabs;
+  assert.deepEqual(targetTabs.filter((tab) => tab.id !== 1).map(({ id }) => id), [2, 3]);
+  const newGroupId = targetTabs.find(({ id }) => id === 2).groupId;
+  assert.notEqual(newGroupId, -1);
+  assert.equal(targetTabs.find(({ id }) => id === 3).groupId, newGroupId);
+  assert.equal((await api.tabGroups.get(newGroupId)).title, "Research");
+});
+
+test("consolidate adds a moved group to an existing same-titled group in the target window", async () => {
+  const api = createFakeBrowser(
+    [
+      { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true, groupId: 20 }] },
+      { id: 2, type: "normal", tabs: [{ id: 2, url: "https://a.test/", groupId: 10 }] },
+    ],
+    { groups: [{ id: 20, title: "Research", color: "red", windowId: 1 }, { id: 10, title: "research", color: "blue", windowId: 2 }] },
+  );
+  const result = await createTabManager(api).run("consolidate", 1, { keepGroups: true });
+  assert.equal(result.status, "complete");
+  const targetTabs = api.snapshotWindow(1).tabs;
+  assert.equal(targetTabs.find(({ id }) => id === 2).groupId, 20);
+  assert.equal((await api.tabGroups.get(20)).color, "red");
+});
+
+test("organize keeps pinned tabs pinned and groups intact by default", async () => {
+  const api = createFakeBrowser(
+    [
+      { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+      { id: 2, type: "normal", tabs: [
+        { id: 2, url: "https://pinned.test/", pinned: true },
+        { id: 3, url: "https://a.test/", groupId: 10 },
+        { id: 4, url: "https://b.test/", groupId: 10 },
+      ] },
+    ],
+    { groups: [{ id: 10, title: "Research", color: "blue", windowId: 2 }] },
+  );
+  const result = await createTabManager(api).run("organize", 1);
+  assert.equal(result.status, "complete");
+  const targetTabs = api.snapshotWindow(1).tabs;
+  assert.equal(targetTabs.find(({ id }) => id === 2).pinned, true);
+  const groupId = targetTabs.find(({ id }) => id === 3).groupId;
+  assert.notEqual(groupId, -1);
+  assert.equal(targetTabs.find(({ id }) => id === 4).groupId, groupId);
+});

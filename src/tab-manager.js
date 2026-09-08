@@ -140,24 +140,52 @@ export function createTabManager(api, options = {}) {
     }
   }
 
-  async function consolidatePhase(opAdapter, scope, result, changedIds, intentionalRemovals, options = {}) {
+  async function consolidatePhase(opAdapter, scope, result, changedIds, intentionalRemovals, { keepGroups = false } = {}) {
+    const moveGroups = async () => {
+      let pendingGroupIds = new Set();
+      const initial = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
+      const initialPlan = planConsolidation(initial, scope.targetWindowId, { keepGroups: true });
+      addSkippedSplit(result, initial.filter((tab) => initialPlan.skippedSplitIds.includes(tab.id)));
+      for (const group of initialPlan.groupsToMove) pendingGroupIds.add(group.groupId);
+      while (pendingGroupIds.size) {
+        const tabs = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
+        const plan = planConsolidation(tabs, scope.targetWindowId, { keepGroups: true });
+        addSkippedSplit(result, tabs.filter((tab) => plan.skippedSplitIds.includes(tab.id)));
+        const group = plan.groupsToMove.find((candidate) => pendingGroupIds.has(candidate.groupId));
+        if (!group) break;
+        const meta = await opAdapter.readGroupMeta(group.groupId);
+        await ensureTarget(scope);
+        const targetSection = tabs.filter((tab) => tab.windowId === scope.targetWindowId && !tab.pinned).map(({ id }) => id);
+        const moved = await moveWithCount(opAdapter, group.tabIds, { windowId: scope.targetWindowId, index: -1 }, result, {
+          section: "unpinned",
+          pinnedById: new Map(group.tabIds.map((id) => [id, false])),
+          orderIds: group.tabIds,
+          anchorIds: targetSection,
+          place: "after",
+        });
+        if (moved.length) await opAdapter.regroupTabs(moved, meta || { title: "", color: "grey" }, scope.targetWindowId);
+        pendingGroupIds.delete(group.groupId);
+      }
+    };
     const moveSection = async (pinned) => {
       const pending = new Set();
-      let initial = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
-      const initialPlan = planConsolidation(initial, scope.targetWindowId);
+      const initial = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
+      const initialPlan = planConsolidation(initial, scope.targetWindowId, { keepGroups });
       addSkippedSplit(result, initial.filter((tab) => initialPlan.skippedSplitIds.includes(tab.id)));
       for (const id of (pinned ? initialPlan.pinnedIds : initialPlan.unpinnedIds)) pending.add(id);
       while (pending.size) {
         const tabs = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
-        const plan = planConsolidation(tabs, scope.targetWindowId);
+        const plan = planConsolidation(tabs, scope.targetWindowId, { keepGroups });
         addSkippedSplit(result, tabs.filter((tab) => plan.skippedSplitIds.includes(tab.id)));
         const available = (pinned ? plan.pinnedIds : plan.unpinnedIds).filter((id) => pending.has(id));
         if (!available.length) break;
-        const grouped = available.filter((id) => plan.groupedIds.includes(id)).slice(0, BATCH_SIZE);
-        if (grouped.length) {
-          await ensureTarget(scope);
-          await ungroupWithProgress(opAdapter, grouped, result);
-          continue;
+        if (!keepGroups) {
+          const grouped = available.filter((id) => plan.groupedIds.includes(id)).slice(0, BATCH_SIZE);
+          if (grouped.length) {
+            await ensureTarget(scope);
+            await ungroupWithProgress(opAdapter, grouped, result);
+            continue;
+          }
         }
         const batch = (pinned ? available.slice(-BATCH_SIZE) : available.slice(0, BATCH_SIZE));
         await ensureTarget(scope);
@@ -172,6 +200,7 @@ export function createTabManager(api, options = {}) {
         batch.forEach((id) => pending.delete(id));
       }
     };
+    if (keepGroups) await moveGroups();
     await moveSection(true);
     await moveSection(false);
   }
