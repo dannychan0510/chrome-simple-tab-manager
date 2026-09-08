@@ -274,12 +274,20 @@ export function createTabManager(api, options = {}) {
       const groupId = keepGroups && tab && Number.isInteger(tab.groupId) && tab.groupId >= 0 ? tab.groupId : null;
       // A lone tab moved away from its groupmates gets ejected from its group by the
       // real browser, so a grouped tab is never moved alone: its whole group moves as
-      // one batch, landing contiguously and keeping every member grouped.
+      // one batch, landing contiguously and keeping every member grouped. The batch must
+      // be anchored at the group's own block-start position in the target order, not at
+      // moveIndex: moveIndex is just the first mismatch found scanning left to right, and
+      // that can land on a group's second or third member when its first member already
+      // happens to sit correctly (common with several groups converging over multiple
+      // iterations) — anchoring there would re-yank an already-correct tab and insert the
+      // whole group into the wrong slot, potentially splitting apart whatever other group
+      // currently occupies that slot.
       const moveIds = groupId != null
         ? plan.orderedIds.filter((candidateId) => tabs.find((candidate) => candidate.id === candidateId)?.groupId === groupId)
         : [id];
+      const targetIndex = groupId != null ? plan.orderedIds.indexOf(moveIds[0]) : moveIndex;
       await ensureTarget(scope);
-      await moveWithCount(opAdapter, moveIds, { windowId: scope.targetWindowId, index: moveIndex }, result, {
+      await moveWithCount(opAdapter, moveIds, { windowId: scope.targetWindowId, index: targetIndex }, result, {
         pinnedById: new Map(moveIds.map((moveId) => [moveId, Boolean(tabs.find((candidate) => candidate.id === moveId)?.pinned)])),
         orderIds: moveIds,
       });
