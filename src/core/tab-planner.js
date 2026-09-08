@@ -1,4 +1,4 @@
-import { chooseDuplicateSurvivors, isSplitViewTab, sortPinnedSections } from "./tab-rules.js";
+import { chooseDuplicateSurvivors, compareGroupBlocks, compareTabsByDomain, isSplitViewTab, sortPinnedSections } from "./tab-rules.js";
 
 export function captureScope(windows, targetWindowId) {
   const target = windows.find((window) => window.id === targetWindowId && window.type === "normal");
@@ -49,12 +49,28 @@ export function planDuplicateRemoval(tabs, scope) {
   return { ...choice, removeIds, protectTargetWithTabId };
 }
 
-export function planSort(tabs) {
+export function planSort(tabs, { keepGroups = false, groupTitleById = new Map() } = {}) {
   const skippedForSplitView = tabs.some(isSplitViewTab);
-  if (skippedForSplitView) return { orderedIds: [], groupedIds: tabs.filter((tab) => tab.groupId >= 0).map(({ id }) => id), skippedForSplitView };
-  return {
-    orderedIds: sortPinnedSections(tabs).map(({ id }) => id),
-    groupedIds: tabs.filter((tab) => Number.isInteger(tab.groupId) && tab.groupId >= 0).map(({ id }) => id),
-    skippedForSplitView,
+  const groupedIds = tabs.filter((tab) => Number.isInteger(tab.groupId) && tab.groupId >= 0).map(({ id }) => id);
+  if (skippedForSplitView) return { orderedIds: [], groupedIds, skippedForSplitView };
+  if (!keepGroups) return { orderedIds: sortPinnedSections(tabs).map(({ id }) => id), groupedIds, skippedForSplitView };
+  const orderSection = (sectionTabs) => {
+    const byGroup = new Map();
+    const ungrouped = [];
+    for (const tab of sectionTabs) {
+      if (Number.isInteger(tab.groupId) && tab.groupId >= 0) {
+        if (!byGroup.has(tab.groupId)) byGroup.set(tab.groupId, []);
+        byGroup.get(tab.groupId).push(tab);
+      } else ungrouped.push(tab);
+    }
+    const blocks = [...byGroup.entries()]
+      .map(([groupId, groupTabs]) => {
+        const ordered = groupTabs.slice().sort((a, b) => a.index - b.index);
+        return { tabs: ordered, title: groupTitleById.get(groupId) || "", leftmostIndex: Math.min(...ordered.map((tab) => tab.index)) };
+      })
+      .sort(compareGroupBlocks);
+    return [...blocks.flatMap((block) => block.tabs), ...ungrouped.slice().sort(compareTabsByDomain)];
   };
+  const orderedIds = [...orderSection(tabs.filter((tab) => tab.pinned)), ...orderSection(tabs.filter((tab) => !tab.pinned))].map(({ id }) => id);
+  return { orderedIds, groupedIds, skippedForSplitView };
 }

@@ -63,3 +63,33 @@ test("target protection ignores unrelated, loading, and split-view survivors", (
   ], scope);
   assert.equal(plan.protectTargetWithTabId, null);
 });
+
+test("planSort keeps a tab group's members contiguous and orders blocks by title", () => {
+  const tabs = [
+    { id: 1, index: 0, pinned: false, groupId: -1, url: "https://zzz.example/", title: "" },
+    { id: 2, index: 1, pinned: false, groupId: 10, url: "https://a.example/", title: "" },
+    { id: 3, index: 2, pinned: false, groupId: -1, url: "https://aaa.example/", title: "" },
+    { id: 4, index: 3, pinned: false, groupId: 10, url: "https://b.example/", title: "" },
+  ];
+  const plan = planSort(tabs, { keepGroups: true, groupTitleById: new Map([[10, "Research"]]) });
+  assert.deepEqual(plan.orderedIds, [2, 4, 3, 1]);
+});
+
+test("planSort with two same-titled groups ties by leftmost tab index", () => {
+  const tabs = [
+    { id: 1, index: 0, pinned: false, groupId: 20, url: "https://a.example/" },
+    { id: 2, index: 1, pinned: false, groupId: 21, url: "https://b.example/" },
+  ];
+  const plan = planSort(tabs, { keepGroups: true, groupTitleById: new Map([[20, "Work"], [21, "Work"]]) });
+  assert.deepEqual(plan.orderedIds, [1, 2]);
+});
+
+test("planSort falls back to today's flattened sort when keepGroups is omitted", () => {
+  const tabs = [
+    { id: 1, index: 0, pinned: false, groupId: 30, url: "https://zzz.example/" },
+    { id: 2, index: 1, pinned: false, groupId: -1, url: "https://aaa.example/" },
+  ];
+  const plan = planSort(tabs);
+  assert.deepEqual(plan.orderedIds, [2, 1]);
+  assert.deepEqual(plan.groupedIds, [1]);
+});
