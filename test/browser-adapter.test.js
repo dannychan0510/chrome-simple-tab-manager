@@ -52,3 +52,16 @@ test("readCaptured filters moved tabs and reports closed ids", async () => {
   assert.deepEqual(result.changedIds.sort((a, b) => a - b), [2, 3]);
 });
 
+test("a partial move error carries confirmed IDs from earlier and current batches", async () => {
+  let call = 0;
+  const api = {
+    tabs: { move: async (ids) => { call += 1; if (call === 2) return ids.slice(0, 1).map((id) => ({ id })); return ids.map((id) => ({ id })); } },
+    storage: { session: { get: async () => ({}), set: async () => {} } },
+  };
+  const adapter = createBrowserAdapter(api);
+  const ids = Array.from({ length: 60 }, (_, index) => index + 1);
+  await assert.rejects(adapter.move(ids, { windowId: 1, index: -1 }), (error) => {
+    assert.deepEqual(error.confirmedMovedIds, [...Array.from({ length: 50 }, (_, index) => index + 1), 51]);
+    return true;
+  });
+});

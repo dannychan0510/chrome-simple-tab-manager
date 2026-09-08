@@ -43,3 +43,23 @@ test("duplicate plan moves a survivor before removing every target tab", () => {
   assert.deepEqual(plan.removeIds, [1]);
 });
 
+test("target protection selects the mapped survivor for a losing target duplicate", () => {
+  const scope = { targetWindowId: 1, windowOrder: new Map([[1, 0], [2, 1]]) };
+  const plan = planDuplicateRemoval([
+    { id: 1, windowId: 1, index: 0, url: "https://same.test/", status: "complete", pinned: false },
+    { id: 2, windowId: 2, index: 0, url: "https://same.test/", status: "complete", pinned: true },
+    { id: 3, windowId: 2, index: 1, url: "https://unique.test/", status: "loading", pinned: false },
+  ], scope);
+  assert.equal(plan.protectTargetWithTabId, 2);
+});
+
+test("target protection ignores unrelated, loading, and split-view survivors", () => {
+  const scope = { targetWindowId: 1, windowOrder: new Map([[1, 0], [2, 1]]) };
+  const plan = planDuplicateRemoval([
+    { id: 1, windowId: 1, index: 0, url: "https://same.test/", status: "complete", pinned: false },
+    { id: 2, windowId: 2, index: 0, url: "https://other.test/", status: "complete", pinned: true },
+    { id: 3, windowId: 2, index: 1, url: "https://loading.test/", status: "loading", pinned: true },
+    { id: 4, windowId: 2, index: 2, url: "https://split.test/", status: "complete", splitViewId: 8, pinned: true },
+  ], scope);
+  assert.equal(plan.protectTargetWithTabId, null);
+});

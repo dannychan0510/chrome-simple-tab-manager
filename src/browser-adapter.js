@@ -88,7 +88,12 @@ export function createBrowserAdapter(api, options = {}) {
       const returned = normalizeMovedTabs(response).map((tab) => tab?.id).filter(Number.isInteger);
       const returnedSet = new Set(returned);
       const missing = batch.filter((id) => !returnedSet.has(id));
-      if (missing.length) throw new Error(`Tabs moved ${returned.length} of ${batch.length} tabs.`);
+      if (missing.length) {
+        const error = new Error(`Tabs moved ${returned.length} of ${batch.length} tabs.`);
+        error.confirmedMovedIds = [...movedIds, ...returned];
+        error.requestedMovedIds = [...movedIds, ...batch];
+        throw error;
+      }
       movedIds.push(...returned);
       await refresh();
     }
@@ -125,4 +130,3 @@ export function createBrowserAdapter(api, options = {}) {
 
   return { capture, readCaptured, ungroup, move, remove, activate, readOperationState, writeOperationState };
 }
-

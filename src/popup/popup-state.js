@@ -8,7 +8,11 @@ export function nextTheme(preference = "system") {
 
 const phrase = (count, singular, plural = `${singular}s`) => `${count} ${count === 1 ? singular : plural}`;
 
+export const isOperationRunning = (result) => result?.status === "running";
+export const shouldDisableActions = (result) => isOperationRunning(result);
+
 export function formatOperationResult(result = {}) {
+  if ((result.status === "busy" || result.status === "partial" || result.status === "failed") && result.message) return result.message;
   const parts = [];
   if (result.moved) parts.push(`Moved ${phrase(result.moved, "tab")}`);
   if (result.removed) parts.push(`Removed ${phrase(result.removed, "duplicate")}`);
@@ -20,4 +24,3 @@ export function formatOperationResult(result = {}) {
   if (result.sortingSkipped && !result.skippedSplit) parts.push("Sorting skipped");
   return parts.join(" · ") || "No tab changes were needed";
 }
-

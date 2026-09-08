@@ -33,4 +33,5 @@ venv/
 Thumbs.db
 storypoints/
 .worktrees/
+graphify-out/
 # End Generation Here

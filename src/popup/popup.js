@@ -60,13 +60,21 @@ async function runAction(action) {
 
 async function restoreStatus() {
   try {
-    const response = await send({ action: "getStatus", targetWindowId });
+    let response = await send({ action: "getStatus", targetWindowId });
     if (!response?.ok || !response.result) return;
-    const state = response.result;
-    if (state.status === "running") setStatus(`Working on ${state.action}…`);
-    else if (state.message) setStatus(state.message, state.status === "failed" || state.status === "partial" ? "error" : "success");
+    let state = response.result;
+    while (state?.status === "running") {
+      setBusy(true);
+      setStatus(`Working on ${state.action}…`);
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      response = await send({ action: "getStatus", targetWindowId });
+      state = response?.ok ? response.result : null;
+    }
+    setBusy(false);
+    if (state?.message) setStatus(state.message, state.status === "failed" || state.status === "partial" ? "error" : "success");
   } catch {
     // The status is optional while a browser background process starts.
+    setBusy(false);
   }
 }
 
@@ -87,4 +95,3 @@ themeButton.addEventListener("click", async () => {
 media?.addEventListener?.("change", () => { if (preference === "system") applyTheme(); });
 for (const button of actionButtons) button.addEventListener("click", () => runAction(button.dataset.action));
 init().catch((error) => setStatus(error?.message || String(error), "error"));
-

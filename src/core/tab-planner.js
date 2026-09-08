@@ -39,7 +39,11 @@ export function planDuplicateRemoval(tabs, scope) {
   const targetIds = tabs.filter((tab) => tab.windowId === scope.targetWindowId).map(({ id }) => id);
   const targetWouldEmpty = targetIds.length > 0 && targetIds.every((id) => removeIds.includes(id));
   const protectTargetWithTabId = targetWouldEmpty
-    ? choice.survivors.find((tab) => tab.windowId !== scope.targetWindowId)?.id ?? null
+    ? choice.removals
+      .filter((tab) => tab.windowId === scope.targetWindowId)
+      .map((tab) => choice.survivorByRemovedId.get(tab.id))
+      .map((id) => choice.survivors.find((tab) => tab.id === id))
+      .find((tab) => tab && tab.windowId !== scope.targetWindowId)?.id ?? null
     : null;
   return { ...choice, removeIds, protectTargetWithTabId };
 }
@@ -53,4 +57,3 @@ export function planSort(tabs) {
     skippedForSplitView,
   };
 }
-
