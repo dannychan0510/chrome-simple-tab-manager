@@ -25,3 +25,13 @@ test("inline icons use visible labels and the shared stroke system", () => {
   assert.match(html, /stroke-linecap="round"/);
   assert.match(html, /stroke-linejoin="round"/);
 });
+
+test("popup exposes a settings panel with pin and group toggles", () => {
+  assert.match(html, /id="settings-button"/);
+  assert.match(html, /id="settings-panel"/);
+  assert.match(html, /id="keep-pins-toggle"/);
+  assert.match(html, /id="keep-groups-toggle"/);
+  assert.match(html, /Keep pinned tabs pinned/);
+  assert.match(html, /Keep tab groups together/);
+  assert.match(html, /aria-controls="settings-panel"/);
+});

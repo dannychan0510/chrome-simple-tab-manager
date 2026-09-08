@@ -1,12 +1,18 @@
-import { formatOperationResult, nextTheme, operationVisualState, resolveTheme } from "./popup-state.js";
+import { formatOperationResult, nextTheme, operationVisualState, resolveBooleanPreference, resolveTheme } from "./popup-state.js";
 
 const api = globalThis.browser ?? globalThis.chrome;
 const themeButton = document.querySelector("#theme-button");
 const status = document.querySelector("#status");
 const statusText = document.querySelector("#status-text");
 const actionButtons = [...document.querySelectorAll("[data-action]")];
+const settingsButton = document.querySelector("#settings-button");
+const settingsPanel = document.querySelector("#settings-panel");
+const keepPinsToggle = document.querySelector("#keep-pins-toggle");
+const keepGroupsToggle = document.querySelector("#keep-groups-toggle");
 const media = globalThis.matchMedia?.("(prefers-color-scheme: dark)");
 let preference = "system";
+let keepPins = true;
+let keepGroups = true;
 let targetWindowId = null;
 
 function setStatus(message, state = "") {
@@ -49,7 +55,7 @@ async function runAction(action) {
   setBusy(true);
   setStatus("Working…");
   try {
-    const response = await send({ action, targetWindowId });
+    const response = await send({ action, targetWindowId, preferences: { keepPins, keepGroups } });
     if (!response?.ok) throw new Error(response?.error || "The operation could not be completed.");
     const result = response.result || {};
     setStatus(formatOperationResult(result), operationVisualState(result));
@@ -82,6 +88,11 @@ async function init() {
   const stored = await storageGet("themePreference").catch(() => ({}));
   preference = ["system", "light", "dark"].includes(stored?.themePreference) ? stored.themePreference : "system";
   applyTheme();
+  const storedPrefs = await storageGet(["keepPinsSeparate", "keepGroupsTogether"]).catch(() => ({}));
+  keepPins = resolveBooleanPreference(storedPrefs.keepPinsSeparate, true);
+  keepGroups = resolveBooleanPreference(storedPrefs.keepGroupsTogether, true);
+  keepPinsToggle.checked = keepPins;
+  keepGroupsToggle.checked = keepGroups;
   const current = await api.windows.getCurrent({ populate: false });
   targetWindowId = current.id;
   await restoreStatus();
@@ -91,6 +102,19 @@ themeButton.addEventListener("click", async () => {
   preference = nextTheme(preference);
   applyTheme();
   await storageSet({ themePreference: preference });
+});
+settingsButton.addEventListener("click", () => {
+  const expanded = settingsButton.getAttribute("aria-expanded") === "true";
+  settingsButton.setAttribute("aria-expanded", String(!expanded));
+  settingsPanel.hidden = expanded;
+});
+keepPinsToggle.addEventListener("change", async () => {
+  keepPins = keepPinsToggle.checked;
+  await storageSet({ keepPinsSeparate: keepPins });
+});
+keepGroupsToggle.addEventListener("change", async () => {
+  keepGroups = keepGroupsToggle.checked;
+  await storageSet({ keepGroupsTogether: keepGroups });
 });
 media?.addEventListener?.("change", () => { if (preference === "system") applyTheme(); });
 for (const button of actionButtons) button.addEventListener("click", () => runAction(button.dataset.action));

@@ -6,6 +6,10 @@ export function nextTheme(preference = "system") {
   return preference === "system" ? "light" : preference === "light" ? "dark" : "system";
 }
 
+export function resolveBooleanPreference(stored, defaultValue = true) {
+  return typeof stored === "boolean" ? stored : defaultValue;
+}
+
 const phrase = (count, singular, plural = `${singular}s`) => `${count} ${count === 1 ? singular : plural}`;
 
 export const isOperationRunning = (result) => result?.status === "running";
@@ -23,6 +27,7 @@ export function formatOperationResult(result = {}) {
   if (result.moved) parts.push(`Moved ${phrase(result.moved, "tab")}`);
   if (result.removed) parts.push(`Removed ${phrase(result.removed, "duplicate")}`);
   if (result.ungrouped) parts.push(`Ungrouped ${phrase(result.ungrouped, "tab")}`);
+  if (result.unpinned) parts.push(`Unpinned ${phrase(result.unpinned, "tab")}`);
   if (result.skippedSplit) parts.push(`Skipped ${phrase(result.skippedSplit, "split-view tab")}`);
   if (result.changed) parts.push(`Changed ${phrase(result.changed, "tab")}`);
   if (result.retained) parts.push(`Retained ${phrase(result.retained, "tab")}`);

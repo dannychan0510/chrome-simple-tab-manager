@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatOperationResult, isOperationRunning, nextTheme, operationVisualState, resolveTheme, shouldDisableActions } from "../src/popup/popup-state.js";
+import { formatOperationResult, isOperationRunning, nextTheme, operationVisualState, resolveBooleanPreference, resolveTheme, shouldDisableActions } from "../src/popup/popup-state.js";
 
 test("theme preference resolves and cycles", () => {
   assert.equal(resolveTheme("system", true), "dark");
@@ -37,4 +37,15 @@ test("operation visual states keep busy neutral and failures in error styling", 
   assert.equal(operationVisualState({ status: "failed" }), "error");
   assert.equal(operationVisualState({ status: "partial" }), "error");
   assert.equal(operationVisualState({ status: "complete" }), "success");
+});
+
+test("boolean preference resolves stored value or falls back to the default", () => {
+  assert.equal(resolveBooleanPreference(true, true), true);
+  assert.equal(resolveBooleanPreference(false, true), false);
+  assert.equal(resolveBooleanPreference(undefined, true), true);
+  assert.equal(resolveBooleanPreference("not-a-boolean", true), true);
+});
+
+test("result text reports unpinned tabs", () => {
+  assert.equal(formatOperationResult({ moved: 0, removed: 0, ungrouped: 0, unpinned: 3, skippedSplit: 0, changed: 0, retained: 0, failed: 0, sortingSkipped: false }), "Unpinned 3 tabs");
 });
