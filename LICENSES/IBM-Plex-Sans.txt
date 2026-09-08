@@ -1,0 +1,8 @@
+Copyright 2017 IBM Corp. All Rights Reserved.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The license is available with a FAQ at: https://scripts.sil.org/OFL
+
+You may use, copy, merge, embed, modify, and redistribute the Font Software,
+subject to the conditions in the license. The Font Software may not be sold by
+itself.
