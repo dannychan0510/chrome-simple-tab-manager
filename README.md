@@ -17,13 +17,16 @@ It provides four actions:
 
 Loading, pending, missing-URL, and split-view tabs are protected from duplicate
 removal. A split view also makes the sort phase skip so its pair is not split.
-Ordinary browser tab groups are dissolved before movement and sorting. New
-tabs opened after an action starts are left alone.
+By default, pinned tabs stay pinned and ordinary browser tab groups stay
+together across movement and sorting; both preferences can be turned off in
+the popup's settings panel, which restores today's fully-flattened behavior
+of dissolving groups and mixing pinned tabs in with the rest. New tabs opened
+after an action starts are left alone.
 
 No browsing data leaves the browser. The extension has no accounts, analytics,
-network requests, content scripts, or host permissions. It requests only the
-`tabs` and `storage` permissions. Operation state stores action and counts but
-never URLs or titles.
+network requests, content scripts, or host permissions. It requests the
+`tabs`, `tabGroups`, and `storage` permissions. Operation state stores action
+and counts but never URLs or titles.
 
 ## Development
 

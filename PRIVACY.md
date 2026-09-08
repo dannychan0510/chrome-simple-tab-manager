@@ -22,18 +22,20 @@ removing exact URL duplicates. It is processed locally inside the browser.
 
 ## Data stored locally
 
-The extension stores your light, dark, or system theme preference in local
-extension storage. For regular windows, it also stores short-lived operation
-information in browser session storage, including the selected action, its
-status, timestamps, window identifier, and result counts. Private-window
-operation status remains only in background-process memory and is never written
-to browser storage.
+The extension stores your light, dark, or system theme preference, and your
+"keep pinned tabs pinned" and "keep tab groups together" preferences, in
+local extension storage. For regular windows, it also stores short-lived
+operation information in browser session storage, including the selected
+action, its status, timestamps, window identifier, and result counts.
+Private-window operation status remains only in background-process memory and
+is never written to browser storage.
 
 The extension does not store tab URLs, page titles, page content, or browsing
 history. Regular-window session operation information is removed when the
 browser session ends. Private-window operation information disappears when the
-background process stops. The theme preference remains until you clear
-extension storage or remove the extension.
+background process stops. The theme preference and the two tab-handling
+preferences remain until you clear extension storage or remove the extension.
+None of them are personally identifiable and none are ever transmitted.
 
 ## Data transmission and sharing
 
@@ -48,7 +50,7 @@ Store User Data Policy, including the Limited Use requirements.
 
 Tab actions run only after you select one in the extension popup. You can stop
 using the extension at any time by disabling or removing it. Removing it also
-removes its locally stored theme preference.
+removes its locally stored theme and tab-handling preferences.
 
 ## Changes
 

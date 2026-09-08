@@ -25,12 +25,14 @@ popup.
 - Remove duplicate URLs closes exact URL copies. Query strings and page
   fragments remain significant.
 
-Pinned tabs stay pinned. When a pinned and unpinned tab have the same URL, the
+By default, pinned tabs stay pinned and tab groups stay together; both can be
+turned off in Settings. When a pinned and unpinned tab have the same URL, the
 pinned copy is kept. In Firefox, tabs in different containers remain separate.
 
 Loading tabs and tabs without a usable URL are protected from duplicate
-removal. Split-view tabs are left untouched. Ordinary tab groups may be
-dissolved before tabs are moved or sorted.
+removal. Split-view tabs are left untouched. Ordinary tab groups are
+dissolved before tabs are moved or sorted only if "Keep tab groups together"
+is turned off.
 
 Open-tab URLs are processed only inside your browser when you choose an action.
 The extension has no analytics, accounts, advertising, remote code, or network
@@ -51,7 +53,8 @@ transmitted or stored.
 
 ## Permission justification: storage
 
-Storage keeps the user's local theme preference and short regular-window
+Storage keeps the user's local theme preference, the "keep pinned tabs
+pinned" and "keep tab groups together" preferences, and short regular-window
 operation state such as the selected action, timestamps, target window
 identifier, and result counts. Private-window operation state stays in memory
 and is not written to storage. Storage never contains URLs, page titles, or
@@ -59,11 +62,12 @@ page content.
 
 ## Permission justification: tabGroups
 
-Simple Tab Manager reads a tab group's title and color, and creates or
-extends a matching group, only when the user's chosen action moves grouped
-tabs into a different window and the "Keep tab groups together" setting is
-on. It never reads, modifies, or removes a tab group the user did not just
-ask the extension to touch.
+When the "Keep tab groups together" setting is on, Simple Tab Manager reads
+the titles and colors of tab groups in the windows involved in the user's
+chosen action, to decide where a moved group's tabs belong or to preserve
+group order when sorting. It only creates or extends a group in the window
+the action targets. It never reads or modifies a tab group in a window
+unrelated to the action the user just ran.
 
 ## Privacy practices answers
 

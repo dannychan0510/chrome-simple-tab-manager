@@ -22,10 +22,14 @@ Two switches, both **on by default**, stored in local extension storage the
 same way the theme preference is stored today (persists across popup opens,
 never synced, never leaves the device):
 
-- **Keep pinned tabs separate** — when on, pinned tabs keep their own section
-  ahead of unpinned tabs, as today. When off, pinned tabs are ordered
-  alongside unpinned tabs instead of being pinned to the front; their pinned
-  status and pin icon are untouched, only their placement changes.
+- **Keep pinned tabs pinned** — when on, pinned tabs keep their own section
+  ahead of unpinned tabs, as today. When off, pinned tabs are unpinned first
+  (via the browser's tab-update API) and are then treated as ordinary tabs
+  for all placement purposes, ordered alongside the rest instead of being
+  pinned to the front. This is not just a reordering: unpinning is an
+  irreversible state change the extension makes on the user's behalf, and it
+  cannot be undone by the extension afterward — the user would need to
+  re-pin the affected tabs manually.
 - **Keep tab groups together** — when on, an ordinary browser tab group (not
   a split view, which is always left untouched as before) is treated as one
   block: its member tabs stay contiguous and move together. When off, groups
@@ -100,8 +104,14 @@ This section does not define a group's position relative to other groups or
 ungrouped tabs in the target window for Organize/Bring-tabs-together, beyond
 "tabs keep their relative order" — because Organize finishes with a sort
 phase, which is where the ordering rules above take over. Bring-tabs-together
-alone does not sort, so groups and ungrouped tabs simply keep their existing
-relative order the same way individual tabs do today.
+alone does not sort. Instead, it moves tabs in phases: grouped tabs move
+first, as whole units (one group at a time), then pinned tabs, then the
+remaining unpinned tabs — matching `consolidatePhase`'s phase order in
+`src/tab-manager.js`. This means relative order between a group and nearby
+loose tabs is not preserved by Bring-tabs-together alone: a group always
+lands ahead of the ordinary batch-moved tabs regardless of their original
+relative order. Only Organize, whose final sort phase reorders everything
+anyway, makes this invisible.
 
 ## Permission change
 
