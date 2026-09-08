@@ -32,4 +32,5 @@ venv/
 .DS_Store
 Thumbs.db
 storypoints/
+.worktrees/
 # End Generation Here
