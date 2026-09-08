@@ -57,6 +57,14 @@ identifier, and result counts. Private-window operation state stays in memory
 and is not written to storage. Storage never contains URLs, page titles, or
 page content.
 
+## Permission justification: tabGroups
+
+Simple Tab Manager reads a tab group's title and color, and creates or
+extends a matching group, only when the user's chosen action moves grouped
+tabs into a different window and the "Keep tab groups together" setting is
+on. It never reads, modifies, or removes a tab group the user did not just
+ask the extension to touch.
+
 ## Privacy practices answers
 
 - Remote code: No, this extension does not use remote code.
