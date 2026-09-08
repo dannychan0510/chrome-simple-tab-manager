@@ -116,6 +116,12 @@ export function createTabManager(api, options = {}) {
         addSkippedSplit(result, tabs.filter((tab) => plan.skippedSplitIds.includes(tab.id)));
         const available = (pinned ? plan.pinnedIds : plan.unpinnedIds).filter((id) => pending.has(id));
         if (!available.length) break;
+        const grouped = available.filter((id) => plan.groupedIds.includes(id)).slice(0, BATCH_SIZE);
+        if (grouped.length) {
+          await ensureTarget(scope);
+          result.ungrouped += await opAdapter.ungroup(grouped);
+          continue;
+        }
         const batch = (pinned ? available.slice(-BATCH_SIZE) : available.slice(0, BATCH_SIZE));
         await ensureTarget(scope);
         await moveWithCount(opAdapter, batch, { windowId: scope.targetWindowId, index: pinned ? 0 : -1 }, result);
@@ -165,6 +171,12 @@ export function createTabManager(api, options = {}) {
       addSkippedSplit(result, tabs.filter(isSplitViewTab));
       const plan = planSort(tabs);
       if (plan.skippedForSplitView) { result.sortingSkipped = true; return; }
+      const grouped = plan.groupedIds.filter((id) => tabs.some((tab) => tab.id === id && !isSplitViewTab(tab))).slice(0, BATCH_SIZE);
+      if (grouped.length) {
+        await ensureTarget(scope);
+        result.ungrouped += await opAdapter.ungroup(grouped);
+        continue;
+      }
       const currentIds = tabs.slice().sort((a, b) => a.index - b.index).map(({ id }) => id);
       const moveIndex = plan.orderedIds.findIndex((id, index) => currentIds[index] !== id);
       if (moveIndex < 0) return;
@@ -195,6 +207,14 @@ export function createTabManager(api, options = {}) {
     await adapter.writeOperationState(incognito, lease);
     const opAdapter = createBrowserAdapter(api, {
       delay: options.delay,
+      verifyMove: async (ids, properties) => {
+        const confirmed = [];
+        for (const id of ids) {
+          const tab = await api.tabs.get(id).catch(() => null);
+          if (tab?.windowId === properties.windowId) confirmed.push(id);
+        }
+        return confirmed;
+      },
       onBatch: async () => {
         lease.lastUpdatedAt = clock();
         lease.counts = { moved: result.moved, removed: result.removed, ungrouped: result.ungrouped, skippedSplit: result.skippedSplit, changed: result.changed, retained: result.retained, failed: result.failed };

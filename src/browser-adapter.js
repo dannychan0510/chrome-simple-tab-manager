@@ -36,6 +36,14 @@ export function createBrowserAdapter(api, options = {}) {
   const storage = areaOrMemory(api);
   const delay = options.delay || ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
   const refresh = options.onBatch || (async () => {});
+  const verifyMove = options.verifyMove || (api.tabs.get ? async (ids, properties) => {
+    const confirmed = [];
+    for (const id of ids) {
+      const tab = await api.tabs.get(id).catch(() => null);
+      if (tab?.windowId === properties.windowId) confirmed.push(id);
+    }
+    return confirmed;
+  } : null);
 
   async function capture(targetWindowId) {
     const windows = await api.windows.getAll({ populate: true, windowTypes: ["normal"] });
@@ -89,15 +97,16 @@ export function createBrowserAdapter(api, options = {}) {
       }
       if (response === undefined && lastError) throw lastError;
       const returned = normalizeMovedTabs(response).map((tab) => tab?.id).filter(Number.isInteger);
-      const returnedSet = new Set(returned);
-      const missing = batch.filter((id) => !returnedSet.has(id));
+      const confirmed = verifyMove ? await verifyMove(returned, properties) : returned;
+      const confirmedSet = new Set(confirmed);
+      const missing = batch.filter((id) => !confirmedSet.has(id));
       if (missing.length) {
-        const error = new Error(`Tabs moved ${returned.length} of ${batch.length} tabs.`);
-        error.confirmedMovedIds = [...movedIds, ...returned];
+        const error = new Error(`Tabs moved ${confirmed.length} of ${batch.length} tabs; live placement confirmed ${confirmed.length}.`);
+        error.confirmedMovedIds = [...movedIds, ...confirmed];
         error.requestedMovedIds = [...movedIds, ...batch];
         throw error;
       }
-      movedIds.push(...returned);
+      movedIds.push(...confirmed);
       await refresh();
     }
     return movedIds;

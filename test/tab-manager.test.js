@@ -245,3 +245,63 @@ test("deduplication stops after the target closes between removal batches", asyn
   assert.notEqual(result.status, "complete");
   assert.equal(removeCalls, 1);
 });
+
+test("consolidate rejects a cross-window no-op move before counting it", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://source.test/" }] },
+  ]);
+  api.tabs.move = async (ids) => ids.map((id) => ({ id }));
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.notEqual(result.status, "complete");
+  assert.equal(result.moved, 0);
+  assert.match(result.message, /placement confirmed 0/i);
+});
+
+test("deduplicate stops after a no-op target protection move", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://same.test/", active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://same.test/", pinned: true }] },
+  ]);
+  api.tabs.move = async (ids) => ids.map((id) => ({ id }));
+  const result = await createTabManager(api).run("deduplicate", 1);
+  assert.notEqual(result.status, "complete");
+  assert.equal(result.removed, 0);
+  assert.equal(api.calls.some(({ name }) => name === "tabs.remove"), false);
+});
+
+test("consolidation re-ungroups a tab that becomes grouped after its first ungroup phase", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+    { id: 2, type: "normal", tabs: [{ id: 2, url: "https://source.test/", groupId: 5 }] },
+  ]);
+  const originalGet = api.tabs.get;
+  const originalUngroup = api.tabs.ungroup;
+  let ungroupCalls = 0;
+  api.tabs.ungroup = async (ids) => { ungroupCalls += 1; return originalUngroup(ids); };
+  api.tabs.get = async (id) => {
+    const tab = await originalGet(id);
+    return ungroupCalls === 1 && id === 2 ? { ...tab, groupId: 7 } : tab;
+  };
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.equal(result.status, "complete");
+  assert.ok(ungroupCalls >= 2);
+});
+
+test("sort re-ungroups a tab that becomes grouped after its first ungroup phase", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [
+    { id: 1, url: "https://z.test/", active: true },
+    { id: 2, url: "https://a.test/", groupId: 5 },
+  ] }]);
+  const originalGet = api.tabs.get;
+  const originalUngroup = api.tabs.ungroup;
+  let ungroupCalls = 0;
+  api.tabs.ungroup = async (ids) => { ungroupCalls += 1; return originalUngroup(ids); };
+  api.tabs.get = async (id) => {
+    const tab = await originalGet(id);
+    return ungroupCalls === 1 && id === 2 ? { ...tab, groupId: 7 } : tab;
+  };
+  const result = await createTabManager(api).run("sort", 1);
+  assert.equal(result.status, "complete");
+  assert.ok(ungroupCalls >= 2);
+});
