@@ -26,15 +26,7 @@ function resultMessage(result) {
 
 export function createTabManager(api, options = {}) {
   const activeOperations = new Map();
-  let currentLease = null;
-  const adapter = createBrowserAdapter(api, {
-    delay: options.delay,
-    onBatch: async () => {
-      if (!currentLease) return;
-      currentLease.lastUpdatedAt = Date.now();
-      await adapter.writeOperationState(currentLease.incognito, currentLease);
-    },
-  });
+  const adapter = createBrowserAdapter(api, { delay: options.delay });
 
   async function assertTarget(targetWindowId) {
     const window = await api.windows.get(targetWindowId, { populate: true });
@@ -45,36 +37,35 @@ export function createTabManager(api, options = {}) {
   async function updateLease(lease, result) {
     lease.lastUpdatedAt = Date.now();
     lease.counts = { moved: result.moved, removed: result.removed, ungrouped: result.ungrouped, skippedSplit: result.skippedSplit, changed: result.changed, retained: result.retained, failed: result.failed };
-    currentLease = lease;
     await adapter.writeOperationState(lease.incognito, lease);
   }
 
-  async function readPhase(scope, result) {
-    const read = await adapter.readCaptured(scope);
-    result.changed += read.changedIds.length;
+  async function readPhase(opAdapter, scope, result, changedIds) {
+    const read = await opAdapter.readCaptured(scope);
+    for (const id of read.changedIds) if (!changedIds.has(id)) { changedIds.add(id); result.changed += 1; }
     return read.tabs;
   }
 
-  async function ungroupPhase(scope, result) {
-    const tabs = await readPhase(scope, result);
+  async function ungroupPhase(opAdapter, scope, result, changedIds) {
+    const tabs = await readPhase(opAdapter, scope, result, changedIds);
     const ids = tabs.filter((tab) => Number.isInteger(tab.groupId) && tab.groupId >= 0).map(({ id }) => id);
-    if (ids.length) result.ungrouped += await adapter.ungroup(ids);
+    if (ids.length) result.ungrouped += await opAdapter.ungroup(ids);
   }
 
-  async function consolidatePhase(scope, result) {
-    const tabs = await readPhase(scope, result);
+  async function consolidatePhase(opAdapter, scope, result, changedIds) {
+    const tabs = await readPhase(opAdapter, scope, result, changedIds);
     const plan = planConsolidation(tabs, scope.targetWindowId);
     result.skippedSplit += plan.skippedSplitIds.length;
-    if (plan.pinnedIds.length) result.moved += (await adapter.move(plan.pinnedIds, { windowId: scope.targetWindowId, index: 0 })).length;
-    if (plan.unpinnedIds.length) result.moved += (await adapter.move(plan.unpinnedIds, { windowId: scope.targetWindowId, index: -1 })).length;
+    if (plan.pinnedIds.length) result.moved += (await opAdapter.move(plan.pinnedIds, { windowId: scope.targetWindowId, index: 0 })).length;
+    if (plan.unpinnedIds.length) result.moved += (await opAdapter.move(plan.unpinnedIds, { windowId: scope.targetWindowId, index: -1 })).length;
   }
 
-  async function deduplicatePhase(scope, result) {
-    let tabs = await readPhase(scope, result);
+  async function deduplicatePhase(opAdapter, scope, result, changedIds) {
+    let tabs = await readPhase(opAdapter, scope, result, changedIds);
     let plan = planDuplicateRemoval(tabs, scope);
     if (plan.protectTargetWithTabId) {
-      result.moved += (await adapter.move([plan.protectTargetWithTabId], { windowId: scope.targetWindowId, index: -1 })).length;
-      tabs = await readPhase(scope, result);
+      result.moved += (await opAdapter.move([plan.protectTargetWithTabId], { windowId: scope.targetWindowId, index: -1 })).length;
+      tabs = await readPhase(opAdapter, scope, result, changedIds);
       plan = planDuplicateRemoval(tabs, scope);
     }
     const liveRemovals = plan.removeIds.filter((id) => {
@@ -82,22 +73,22 @@ export function createTabManager(api, options = {}) {
       return tab && isDuplicateEligible(tab);
     });
     if (liveRemovals.length) {
-      const removed = await adapter.remove(liveRemovals);
+      const removed = await opAdapter.remove(liveRemovals);
       result.removed += removed.removedIds.length;
       result.retained += removed.retainedIds.length;
     }
     result.survivorByRemovedId = plan.survivorByRemovedId;
   }
 
-  async function sortPhase(scope, result) {
-    const tabs = (await readPhase(scope, result)).filter((tab) => tab.windowId === scope.targetWindowId);
+  async function sortPhase(opAdapter, scope, result, changedIds) {
+    const tabs = (await readPhase(opAdapter, scope, result, changedIds)).filter((tab) => tab.windowId === scope.targetWindowId);
     const plan = planSort(tabs);
     result.skippedSplit += tabs.filter(isSplitViewTab).length;
     if (plan.skippedForSplitView) { result.sortingSkipped = true; return; }
     const currentIds = tabs.slice().sort((a, b) => a.index - b.index).map(({ id }) => id);
     for (const [index, id] of plan.orderedIds.entries()) {
       if (currentIds[index] === id) continue;
-      result.moved += (await adapter.move([id], { windowId: scope.targetWindowId, index })).length;
+      result.moved += (await opAdapter.move([id], { windowId: scope.targetWindowId, index })).length;
       const oldIndex = currentIds.indexOf(id);
       currentIds.splice(oldIndex, 1);
       currentIds.splice(index, 0, id);
@@ -119,12 +110,19 @@ export function createTabManager(api, options = {}) {
     const result = createEmptyResult(action);
     const lease = { status: "running", action, targetWindowId, incognito, startedAt: now, lastUpdatedAt: now, counts: {} };
     activeOperations.set(leaseKey, lease);
-    currentLease = lease;
     await adapter.writeOperationState(incognito, lease);
+    const opAdapter = createBrowserAdapter(api, {
+      delay: options.delay,
+      onBatch: async () => {
+        lease.lastUpdatedAt = Date.now();
+        await adapter.writeOperationState(lease.incognito, lease);
+      },
+    });
     let scope;
     try {
       scope = await adapter.capture(targetWindowId);
       const initialActiveId = scope.activeTabId;
+      const changedIds = new Set();
       const phaseMap = {
         consolidate: [ungroupPhase, consolidatePhase],
         sort: [ungroupPhase, sortPhase],
@@ -135,15 +133,15 @@ export function createTabManager(api, options = {}) {
         if (options.beforePhase) await options.beforePhase(phase.name);
         const currentWindow = await api.windows.get(targetWindowId, { populate: false }).catch(() => null);
         if (!currentWindow) throw new Error("The target window closed while the operation was running.");
-        await phase(scope, result);
+        await phase(opAdapter, scope, result, changedIds);
         await updateLease(lease, result);
       }
-      const finalRead = await adapter.readCaptured(scope);
-      result.changed += finalRead.changedIds.length;
+      const finalRead = await opAdapter.readCaptured(scope);
+      for (const id of finalRead.changedIds) if (!changedIds.has(id)) { changedIds.add(id); result.changed += 1; }
       const finalIds = new Set(finalRead.tabs.map(({ id }) => id));
       const survivor = result.survivorByRemovedId?.get(initialActiveId);
       const activateId = finalIds.has(initialActiveId) ? initialActiveId : finalIds.has(survivor) ? survivor : null;
-      if (activateId) await adapter.activate(activateId);
+      if (activateId) await opAdapter.activate(activateId);
       result.status = result.failed ? "partial" : "complete";
       result.message = resultMessage(result);
       lease.status = result.status;
@@ -161,7 +159,6 @@ export function createTabManager(api, options = {}) {
       return result;
     } finally {
       activeOperations.delete(leaseKey);
-      currentLease = null;
     }
   }
 

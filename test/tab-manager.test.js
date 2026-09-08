@@ -67,3 +67,23 @@ test("retained duplicate tabs are reported when a close prompt keeps them open",
   assert.equal(result.retained, 1);
   assert.equal(result.removed, 0);
 });
+
+test("a changed tab is counted once across repeated phase reads", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [{ id: 1, url: "https://a.test/", active: true }] }], { closedIds: new Set([1]) });
+  const result = await createTabManager(api).run("organize", 1);
+  assert.equal(result.changed, 1);
+});
+
+test("regular and private operations keep separate leases while running together", async () => {
+  const api = createFakeBrowser([
+    { id: 1, type: "normal", incognito: false, tabs: [{ id: 1, url: "https://regular.test/", active: true }] },
+    { id: 2, type: "normal", incognito: true, tabs: [{ id: 2, url: "https://private.test/", active: true }] },
+  ]);
+  const manager = createTabManager(api);
+  const [regular, privateResult] = await Promise.all([manager.run("sort", 1), manager.run("sort", 2)]);
+  assert.equal(regular.status, "complete");
+  assert.equal(privateResult.status, "complete");
+  const writes = api.calls.filter(({ name }) => name === "storage.session.set").map(({ values }) => Object.keys(values)[0]);
+  assert.ok(writes.includes("operation_regular"));
+  assert.ok(writes.includes("operation_private"));
+});
