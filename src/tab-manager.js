@@ -63,6 +63,11 @@ export function createTabManager(api, options = {}) {
     return window;
   }
 
+  async function ensureTarget(scope) {
+    const target = await api.windows.get(scope.targetWindowId, { populate: false }).catch(() => null);
+    if (!target) throw new Error("The target window closed while the operation was running.");
+  }
+
   async function updateLease(lease, result) {
     lease.lastUpdatedAt = clock();
     lease.counts = { moved: result.moved, removed: result.removed, ungrouped: result.ungrouped, skippedSplit: result.skippedSplit, changed: result.changed, retained: result.retained, failed: result.failed };
@@ -92,6 +97,7 @@ export function createTabManager(api, options = {}) {
       const liveTabs = await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals);
       const ids = liveTabs.filter((tab) => pending.has(tab.id) && Number.isInteger(tab.groupId) && tab.groupId >= 0 && !isSplitViewTab(tab) && (mode === "organize" || (mode === "consolidate" ? tab.windowId !== scope.targetWindowId : tab.windowId === scope.targetWindowId))).map(({ id }) => id).slice(0, BATCH_SIZE);
       if (!ids.length) break;
+      await ensureTarget(scope);
       result.ungrouped += await opAdapter.ungroup(ids);
       ids.forEach((id) => pending.delete(id));
     }
@@ -111,6 +117,7 @@ export function createTabManager(api, options = {}) {
         const available = (pinned ? plan.pinnedIds : plan.unpinnedIds).filter((id) => pending.has(id));
         if (!available.length) break;
         const batch = (pinned ? available.slice(-BATCH_SIZE) : available.slice(0, BATCH_SIZE));
+        await ensureTarget(scope);
         await moveWithCount(opAdapter, batch, { windowId: scope.targetWindowId, index: pinned ? 0 : -1 }, result);
         batch.forEach((id) => pending.delete(id));
       }
@@ -139,6 +146,7 @@ export function createTabManager(api, options = {}) {
       const liveRemovals = tabs.filter((tab) => pending.has(tab.id) && liveRemovalIds.has(tab.id) && isDuplicateEligible(tab) && plannedKeys.get(tab.id) === duplicateKey(tab)).map(({ id }) => id);
       if (!liveRemovals.length) break;
       const batch = liveRemovals.slice(0, BATCH_SIZE);
+      await ensureTarget(scope);
       batch.forEach((id) => intentionalRemovals.add(id));
       const removed = await opAdapter.remove(batch);
       result.removed += removed.removedIds.length;
@@ -149,6 +157,8 @@ export function createTabManager(api, options = {}) {
   }
 
   async function sortPhase(opAdapter, scope, result, changedIds, intentionalRemovals) {
+    let previousOrder = null;
+    let iterations = 0;
     while (true) {
       const tabs = (await readPhase(opAdapter, scope, result, changedIds, intentionalRemovals)).filter((tab) => tab.windowId === scope.targetWindowId);
       addSkippedSplit(result, tabs.filter(isSplitViewTab));
@@ -157,8 +167,12 @@ export function createTabManager(api, options = {}) {
       const currentIds = tabs.slice().sort((a, b) => a.index - b.index).map(({ id }) => id);
       const moveIndex = plan.orderedIds.findIndex((id, index) => currentIds[index] !== id);
       if (moveIndex < 0) return;
+      const order = currentIds.join(",");
+      if (order === previousOrder || ++iterations > Math.max(1, tabs.length * 2)) throw new Error("Sorting made no progress after a tab move.");
       const id = plan.orderedIds[moveIndex];
+      await ensureTarget(scope);
       await moveWithCount(opAdapter, [id], { windowId: scope.targetWindowId, index: moveIndex }, result);
+      previousOrder = order;
     }
   }
 

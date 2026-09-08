@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatOperationResult, isOperationRunning, nextTheme, resolveTheme, shouldDisableActions } from "../src/popup/popup-state.js";
+import { formatOperationResult, isOperationRunning, nextTheme, operationVisualState, resolveTheme, shouldDisableActions } from "../src/popup/popup-state.js";
 
 test("theme preference resolves and cycles", () => {
   assert.equal(resolveTheme("system", true), "dark");
@@ -28,4 +28,13 @@ test("running status disables actions while completed status releases them", () 
   assert.equal(isOperationRunning({ status: "running" }), true);
   assert.equal(shouldDisableActions({ status: "running" }), true);
   assert.equal(shouldDisableActions({ status: "complete" }), false);
+});
+
+test("operation visual states keep busy neutral and failures in error styling", () => {
+  assert.equal(operationVisualState({ status: "busy" }), "busy");
+  assert.equal(operationVisualState({ status: "running" }), "busy");
+  assert.equal(operationVisualState({ status: "interrupted" }), "error");
+  assert.equal(operationVisualState({ status: "failed" }), "error");
+  assert.equal(operationVisualState({ status: "partial" }), "error");
+  assert.equal(operationVisualState({ status: "complete" }), "success");
 });

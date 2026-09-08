@@ -11,7 +11,6 @@ test("popup exposes all four actions with accessible status", () => {
   assert.match(html, /aria-live="polite"/);
   assert.doesNotMatch(html, /(?:src|href)=['"]https?:/);
 });
-
 test("popup styles cover themes, focus, motion, and forced colors", () => {
   for (const token of ["prefers-reduced-motion", "prefers-color-scheme", "forced-colors", ":focus-visible", "@font-face"]) assert.match(css, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(css, /ibm-plex-sans-latin-400-normal\.woff2/);
@@ -25,4 +24,3 @@ test("inline icons use visible labels and the shared stroke system", () => {
   assert.match(html, /stroke-linecap="round"/);
   assert.match(html, /stroke-linejoin="round"/);
 });
-

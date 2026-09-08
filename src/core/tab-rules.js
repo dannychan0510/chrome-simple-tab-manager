@@ -49,7 +49,7 @@ export function sortPinnedSections(tabs) {
   return [...tabs.filter((tab) => tab.pinned).sort(compareTabsByDomain), ...tabs.filter((tab) => !tab.pinned).sort(compareTabsByDomain)];
 }
 
-export function chooseDuplicateSurvivors(tabs, targetWindowId, windowOrder) {
+export function chooseDuplicateSurvivors(tabs, targetWindowId, windowOrder, tabOrder = new Map()) {
   const groups = new Map();
   for (const tab of tabs) {
     const key = duplicateKey(tab);
@@ -66,6 +66,7 @@ export function chooseDuplicateSurvivors(tabs, targetWindowId, windowOrder) {
       Number(b.pinned) - Number(a.pinned) ||
       Number(b.windowId === targetWindowId) - Number(a.windowId === targetWindowId) ||
       (windowOrder.get(a.windowId) ?? Number.MAX_SAFE_INTEGER) - (windowOrder.get(b.windowId) ?? Number.MAX_SAFE_INTEGER) ||
+      (tabOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (tabOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
       (a.index ?? Number.MAX_SAFE_INTEGER) - (b.index ?? Number.MAX_SAFE_INTEGER) || a.id - b.id,
     );
     const survivor = group[0];

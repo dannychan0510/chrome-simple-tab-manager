@@ -9,4 +9,3 @@ api.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   operation.then((result) => sendResponse({ ok: true, result }), (error) => sendResponse({ ok: false, error: error?.message || String(error) }));
   return true;
 });
-

@@ -62,7 +62,10 @@ export function createBrowserAdapter(api, options = {}) {
     for (const batch of chunkIds(tabIds)) {
       if (batch.length === 0 || !api.tabs.ungroup) continue;
       await api.tabs.ungroup(batch);
-      count += batch.length;
+      for (const id of batch) {
+        const tab = await readTab(api, id);
+        if (tab && (!Number.isInteger(tab.groupId) || tab.groupId < 0)) count += 1;
+      }
       await refresh();
     }
     return count;

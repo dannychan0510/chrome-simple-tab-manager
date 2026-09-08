@@ -28,4 +28,3 @@ test("build creates valid Chrome and Firefox packages", async () => {
   await access(join(root, "dist/chrome/assets/fonts/ibm-plex-sans-latin-400-normal.woff2"));
   await access(join(root, "dist/chrome/LICENSES/IBM-Plex-Sans.txt"));
 });
-

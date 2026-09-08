@@ -13,6 +13,7 @@ export function captureScope(windows, targetWindowId) {
     windowIds,
     tabIds: tabs.map(({ id }) => id).filter((id) => Number.isInteger(id)),
     windowOrder: new Map(windowIds.map((id, index) => [id, index])),
+    tabOrder: new Map(tabs.map(({ id }, index) => [id, index])),
   };
 }
 
@@ -34,7 +35,7 @@ export function planConsolidation(tabs, targetWindowId) {
 }
 
 export function planDuplicateRemoval(tabs, scope) {
-  const choice = chooseDuplicateSurvivors(tabs, scope.targetWindowId, scope.windowOrder);
+  const choice = chooseDuplicateSurvivors(tabs, scope.targetWindowId, scope.windowOrder, scope.tabOrder);
   const removeIds = choice.removals.map(({ id }) => id);
   const targetIds = tabs.filter((tab) => tab.windowId === scope.targetWindowId).map(({ id }) => id);
   const targetWouldEmpty = targetIds.length > 0 && targetIds.every((id) => removeIds.includes(id));

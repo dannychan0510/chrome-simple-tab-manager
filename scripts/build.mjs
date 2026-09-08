@@ -33,4 +33,3 @@ for (const target of ["chrome", "firefox"]) {
   await buildTarget(target);
 }
 console.log("Built dist/chrome and dist/firefox");
-

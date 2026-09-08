@@ -10,6 +10,12 @@ const phrase = (count, singular, plural = `${singular}s`) => `${count} ${count =
 
 export const isOperationRunning = (result) => result?.status === "running";
 export const shouldDisableActions = (result) => isOperationRunning(result);
+export function operationVisualState(result) {
+  if (result?.status === "busy" || result?.status === "running") return "busy";
+  if (["interrupted", "failed", "partial"].includes(result?.status)) return "error";
+  if (result?.status === "complete") return "success";
+  return "";
+}
 
 export function formatOperationResult(result = {}) {
   if ((result.status === "busy" || result.status === "partial" || result.status === "failed") && result.message) return result.message;

@@ -65,3 +65,16 @@ test("a partial move error carries confirmed IDs from earlier and current batche
     return true;
   });
 });
+
+test("ungroup counts only tabs confirmed outside groups", async () => {
+  const tabs = new Map([[1, { id: 1, groupId: -1 }], [2, { id: 2, groupId: 4 }]]);
+  const api = {
+    tabs: {
+      get: async (id) => tabs.get(id),
+      ungroup: async () => {},
+    },
+    storage: { session: { get: async () => ({}), set: async () => {} } },
+  };
+  const adapter = createBrowserAdapter(api);
+  assert.equal(await adapter.ungroup([1, 2]), 1);
+});

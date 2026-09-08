@@ -220,3 +220,28 @@ test("getStatus interrupts a stale running lease after a background restart", as
   assert.equal(state.status, "interrupted");
   assert.match(state.message, /interrupted/i);
 });
+
+test("sort fails with a direct no-progress error when a move does not change order", async () => {
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [
+    { id: 1, url: "https://z.test/", active: true },
+    { id: 2, url: "https://a.test/" },
+  ] }]);
+  api.tabs.move = async (ids) => ids.map((id) => ({ id }));
+  const result = await createTabManager(api).run("sort", 1);
+  assert.notEqual(result.status, "complete");
+  assert.match(result.message, /no progress/i);
+});
+
+test("deduplication stops after the target closes between removal batches", async () => {
+  const sourceTabs = Array.from({ length: 101 }, (_, index) => ({ id: index + 2, url: "https://same.test/" }));
+  const api = createFakeBrowser([{ id: 1, type: "normal", tabs: [{ id: 1, url: "https://same.test/", active: true }, ...sourceTabs] }]);
+  const originalGet = api.windows.get;
+  const originalRemove = api.tabs.remove;
+  let closed = false;
+  let removeCalls = 0;
+  api.windows.get = async (...args) => { if (closed) throw new Error("No window with id: 1"); return originalGet(...args); };
+  api.tabs.remove = async (ids) => { removeCalls += 1; const result = await originalRemove(ids); closed = true; return result; };
+  const result = await createTabManager(api).run("deduplicate", 1);
+  assert.notEqual(result.status, "complete");
+  assert.equal(removeCalls, 1);
+});

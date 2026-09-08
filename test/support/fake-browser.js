@@ -105,4 +105,3 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
   normalize();
   return api;
 }
-

@@ -20,7 +20,6 @@ const tab = (id, url, extra = {}) => ({
   status: "complete",
   ...extra,
 });
-
 test("a pinned URL copy survives an earlier unpinned copy", () => {
   const result = chooseDuplicateSurvivors(
     [tab(1, "https://example.com/"), tab(2, "https://example.com/", { pinned: true, windowId: 2 })],
@@ -76,3 +75,12 @@ test("pinned and unpinned tabs sort independently", () => {
   assert.deepEqual(ordered.map(({ id }) => id), [3, 1, 2, 4]);
 });
 
+test("captured tab order wins after equal candidates are dragged", () => {
+  const result = chooseDuplicateSurvivors(
+    [tab(1, "https://same.test/", { windowId: 2, index: 99 }), tab(2, "https://same.test/", { windowId: 2, index: 0 })],
+    1,
+    new Map([[1, 0], [2, 0]]),
+    new Map([[1, 0], [2, 1]]),
+  );
+  assert.equal(result.survivors[0].id, 1);
+});

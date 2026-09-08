@@ -1,4 +1,4 @@
-import { formatOperationResult, nextTheme, resolveTheme } from "./popup-state.js";
+import { formatOperationResult, nextTheme, operationVisualState, resolveTheme } from "./popup-state.js";
 
 const api = globalThis.browser ?? globalThis.chrome;
 const themeButton = document.querySelector("#theme-button");
@@ -52,7 +52,7 @@ async function runAction(action) {
     const response = await send({ action, targetWindowId });
     if (!response?.ok) throw new Error(response?.error || "The operation could not be completed.");
     const result = response.result || {};
-    setStatus(formatOperationResult(result), result.status === "failed" || result.status === "partial" ? "error" : "success");
+    setStatus(formatOperationResult(result), operationVisualState(result));
   } catch (error) {
     setStatus(error?.message || String(error), "error");
   } finally { setBusy(false); }
@@ -71,7 +71,7 @@ async function restoreStatus() {
       state = response?.ok ? response.result : null;
     }
     setBusy(false);
-    if (state?.message) setStatus(state.message, state.status === "failed" || state.status === "partial" ? "error" : "success");
+    if (state?.message) setStatus(state.message, operationVisualState(state));
   } catch {
     // The status is optional while a browser background process starts.
     setBusy(false);
