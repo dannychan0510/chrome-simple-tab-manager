@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Simple Tab Manager</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="tray">
+      <header class="header">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7.5h10.5a2 2 0 0 1 2 2V18H6a2 2 0 0 1-2-2V7.5Z"/>
+              <path d="M7 5h10.5a2 2 0 0 1 2 2v8.5"/>
+              <path d="M8 11h5"/>
+            </svg>
+          </span>
+          <span class="brand-name">Simple Tab Manager</span>
+        </div>
+        <button id="theme-button" class="theme-button" type="button" aria-label="Theme: System" title="Theme: System">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.64 5.64l1.42 1.42M16.94 16.94l1.42 1.42M18.36 5.64l-1.42 1.42M7.06 16.94l-1.42 1.42"/>
+            <circle cx="12" cy="12" r="3.5"/>
+          </svg>
+          <span class="sr-only">Theme: System</span>
+        </button>
+      </header>
+
+      <p class="tagline">Bring order to this window</p>
+
+      <button class="primary-action" type="button" data-action="organize">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 7.5h10.5a2 2 0 0 1 2 2V18H6a2 2 0 0 1-2-2V7.5Z"/>
+          <path d="M7 5h10.5a2 2 0 0 1 2 2v8.5"/>
+          <path d="m8 12 2 2 4-4"/>
+        </svg>
+        <span>Organize all tabs</span>
+      </button>
+
+      <div class="action-list" aria-label="Individual tab tools">
+        <button class="action-row" type="button" data-action="consolidate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h10a2 2 0 0 1 2 2v8H7a2 2 0 0 1-2-2V7Z"/><path d="M9 5h10v10"/><path d="M10 12h4"/></svg>
+          <span>Bring tabs together</span><span class="row-chevron" aria-hidden="true">›</span>
+        </button>
+        <button class="action-row" type="button" data-action="sort">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6h12M6 12h8M6 18h4"/><path d="m16 15 3 3 3-3M19 18V6"/></svg>
+          <span>Sort by domain</span><span class="row-chevron" aria-hidden="true">›</span>
+        </button>
+        <button class="action-row" type="button" data-action="deduplicate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h10.5a2 2 0 0 1 2 2V17H7a2 2 0 0 1-2-2V7.5Z"/><path d="M8 5h10.5a2 2 0 0 1 2 2v7"/><path d="m9 12 2 2 4-4"/></svg>
+          <span>Remove duplicate URLs</span><span class="row-chevron" aria-hidden="true">›</span>
+        </button>
+      </div>
+
+      <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">
+        <span class="status-dot" aria-hidden="true"></span><span id="status-text">Ready</span>
+      </div>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
