@@ -197,6 +197,11 @@ export function createTabManager(api, options = {}) {
           anchorIds: targetSection,
           place: pinned ? "before" : "after",
         });
+        // Appending unpinned tabs at the end can land them right next to a group that
+        // was just moved into place (or already sat there), and the browser silently
+        // folds a tab dropped next to a group's edge into it. These tabs were never
+        // meant to be grouped, so pull them back out if that happened.
+        if (!pinned) await opAdapter.ungroup(batch);
         batch.forEach((id) => pending.delete(id));
       }
     };
@@ -291,6 +296,13 @@ export function createTabManager(api, options = {}) {
         pinnedById: new Map(moveIds.map((moveId) => [moveId, Boolean(tabs.find((candidate) => candidate.id === moveId)?.pinned)])),
         orderIds: moveIds,
       });
+      // The browser can silently fold a moved tab into whichever group it lands next to
+      // (dropping next to a group's edge tab joins it, not just landing strictly between
+      // two members). Reassert the correct membership explicitly rather than trusting the
+      // move to leave it alone: a grouped batch is put back in its own group, and a lone
+      // ungrouped tab is pulled back out of whatever it may have just been folded into.
+      if (groupId != null) await opAdapter.assignGroup(moveIds, groupId);
+      else await opAdapter.ungroup(moveIds);
       previousOrder = order;
     }
   }

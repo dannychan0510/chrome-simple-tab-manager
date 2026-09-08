@@ -97,6 +97,12 @@ export function createBrowserAdapter(api, options = {}) {
     try { return await api.tabGroups.get(groupId); } catch { return null; }
   }
 
+  async function assignGroup(tabIds, groupId) {
+    if (!tabIds.length || !api.tabs.group) return;
+    await api.tabs.group({ tabIds, groupId });
+    await refresh();
+  }
+
   async function regroupTabs(tabIds, meta, windowId) {
     if (!tabIds.length || !api.tabs.group) return null;
     let targetGroupId = null;
@@ -184,5 +190,5 @@ export function createBrowserAdapter(api, options = {}) {
     await storage.set({ [key]: state });
   }
 
-  return { capture, readCaptured, ungroup, unpin, regroupTabs, readGroupMeta, move, remove, activate, readOperationState, writeOperationState };
+  return { capture, readCaptured, ungroup, unpin, regroupTabs, assignGroup, readGroupMeta, move, remove, activate, readOperationState, writeOperationState };
 }

@@ -73,6 +73,17 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
         let index = properties.index == null || properties.index < 0 ? destination.tabs.length : properties.index;
         if (moving.some((tab) => tab.pinned) && index > destination.tabs.filter((tab) => tab.pinned).length) index = destination.tabs.filter((tab) => tab.pinned).length;
         destination.tabs.splice(index, 0, ...moving);
+        // Real Chrome joins a moved tab into whatever group it lands next to: dropped
+        // immediately before or after a group's edge tab, not just strictly between two
+        // members, it becomes a member of that group too, even though nothing asked for
+        // that. Confirmed by hand against real Chrome (dragging an unrelated tab next to
+        // an existing group silently adds it to the group).
+        const left = destination.tabs[index - 1];
+        const right = destination.tabs[index + moving.length];
+        const neighborGroupId = [left, right].find((tab) => tab && Number.isInteger(tab.groupId) && tab.groupId >= 0)?.groupId;
+        if (neighborGroupId != null) {
+          for (const tab of moving) tab.groupId = neighborGroupId;
+        }
         normalize();
         return moving.map((tab) => ({ ...tab }));
       },

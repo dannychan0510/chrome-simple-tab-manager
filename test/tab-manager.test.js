@@ -463,15 +463,15 @@ test("sort keeps a tab group's members together and ordered by group title when 
   assert.equal(api.snapshotWindow(1).tabs.find(({ id }) => id === 4).groupId, 10);
 });
 
-test("sort keeps three groups intact and correctly ordered when a later group's tab already sits in place before an earlier group's does", async () => {
+test("sort keeps three groups intact and correctly ordered across multiple convergence rounds", async () => {
   const api = createFakeBrowser(
     [{ id: 1, type: "normal", tabs: [
       { id: 1, url: "https://c1.test/", active: true, groupId: 300 },
-      { id: 2, url: "https://b1.test/", groupId: 200 },
+      { id: 2, url: "https://c2.test/", groupId: 300 },
       { id: 3, url: "https://a1.test/", groupId: 100 },
-      { id: 4, url: "https://c2.test/", groupId: 300 },
-      { id: 5, url: "https://b2.test/", groupId: 200 },
-      { id: 6, url: "https://c3.test/", groupId: 300 },
+      { id: 4, url: "https://a2.test/", groupId: 100 },
+      { id: 5, url: "https://b1.test/", groupId: 200 },
+      { id: 6, url: "https://b2.test/", groupId: 200 },
     ] }],
     { groups: [
       { id: 100, title: "Alpha", color: "grey", windowId: 1 },
@@ -482,13 +482,39 @@ test("sort keeps three groups intact and correctly ordered when a later group's 
   const result = await createTabManager(api).run("sort", 1, { keepGroups: true });
   assert.equal(result.status, "complete");
   const tabs = api.snapshotWindow(1).tabs;
-  assert.deepEqual(tabs.map(({ id }) => id), [3, 2, 5, 1, 4, 6]);
+  assert.deepEqual(tabs.map(({ id }) => id), [3, 4, 5, 6, 1, 2]);
   assert.equal(tabs.find(({ id }) => id === 3).groupId, 100);
-  assert.equal(tabs.find(({ id }) => id === 2).groupId, 200);
+  assert.equal(tabs.find(({ id }) => id === 4).groupId, 100);
   assert.equal(tabs.find(({ id }) => id === 5).groupId, 200);
+  assert.equal(tabs.find(({ id }) => id === 6).groupId, 200);
   assert.equal(tabs.find(({ id }) => id === 1).groupId, 300);
-  assert.equal(tabs.find(({ id }) => id === 4).groupId, 300);
-  assert.equal(tabs.find(({ id }) => id === 6).groupId, 300);
+  assert.equal(tabs.find(({ id }) => id === 2).groupId, 300);
+});
+
+test("sort does not let an ungrouped tab get folded into a group it lands next to", async () => {
+  const api = createFakeBrowser(
+    [{ id: 1, type: "normal", tabs: [
+      { id: 1, url: "https://alpha0.test/", active: true, groupId: 100 },
+      { id: 2, url: "https://alpha1.test/", groupId: 100 },
+      { id: 3, url: "https://alpha2.test/", groupId: 100 },
+      { id: 4, url: "https://beta0.test/", groupId: 200 },
+      { id: 5, url: "https://beta1.test/", groupId: 200 },
+      { id: 7, url: "https://z-loose1.test/" },
+      { id: 6, url: "https://z-loose0.test/" },
+    ] }],
+    { groups: [
+      { id: 100, title: "alpha", color: "grey", windowId: 1 },
+      { id: 200, title: "beta", color: "grey", windowId: 1 },
+    ] },
+  );
+  const result = await createTabManager(api).run("sort", 1, { keepGroups: true });
+  assert.equal(result.status, "complete");
+  const tabs = api.snapshotWindow(1).tabs;
+  assert.deepEqual(tabs.map(({ id }) => id), [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(tabs.find(({ id }) => id === 4).groupId, 200);
+  assert.equal(tabs.find(({ id }) => id === 5).groupId, 200);
+  assert.equal(tabs.find(({ id }) => id === 6).groupId, -1);
+  assert.equal(tabs.find(({ id }) => id === 7).groupId, -1);
 });
 
 test("consolidate unpins a tab first when keepPins is false", async () => {
@@ -549,6 +575,26 @@ test("consolidate adds a moved group to an existing same-titled group in the tar
   const targetTabs = api.snapshotWindow(1).tabs;
   assert.equal(targetTabs.find(({ id }) => id === 2).groupId, 20);
   assert.equal((await api.tabGroups.get(20)).color, "red");
+});
+
+test("consolidate does not let an incoming ungrouped tab get folded into a group moved in just before it", async () => {
+  const api = createFakeBrowser(
+    [
+      { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+      { id: 2, type: "normal", tabs: [
+        { id: 2, url: "https://a.test/", groupId: 10 },
+        { id: 3, url: "https://b.test/", groupId: 10 },
+        { id: 4, url: "https://c.test/" },
+      ] },
+    ],
+    { groups: [{ id: 10, title: "Research", color: "blue", windowId: 2 }] },
+  );
+  const result = await createTabManager(api).run("consolidate", 1, { keepGroups: true });
+  assert.equal(result.status, "complete");
+  const targetTabs = api.snapshotWindow(1).tabs;
+  const groupId = targetTabs.find(({ id }) => id === 2).groupId;
+  assert.equal(targetTabs.find(({ id }) => id === 3).groupId, groupId);
+  assert.equal(targetTabs.find(({ id }) => id === 4).groupId, -1);
 });
 
 test("consolidate keeps two different untitled source groups distinct in the target window", async () => {
