@@ -11,9 +11,8 @@ notes, reviewer notes, and repeatable archive builder are prepared in this
 repository. Store accounts, identity checks, agreements, final live-browser
 tests, uploads, and review submission still require the account owner.
 
-The project currently uses `all-rights-reserved` for the AMO version license,
-which matches the repository's lack of a public software license. The owner can
-replace this with MIT, MPL-2.0, or another license before submission.
+The project is MIT-licensed (see `LICENSE`), and the AMO version license is
+set to match.
 
 ## Build and package
 

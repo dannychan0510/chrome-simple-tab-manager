@@ -4,7 +4,7 @@
   },
   "default_locale": "en-US",
   "description": {
-    "en-US": "Simple Tab Manager brings order to open tabs from one small toolbar popup.\n\nChoose Organize all tabs to bring matching windows together, remove exact URL duplicates, and sort pinned and unpinned tabs separately by domain. Each tool can also be run on its own.\n\nPinned tabs stay pinned. A pinned URL copy always wins over an unpinned copy. Query strings and fragments remain significant, and Firefox container identities stay separate. Loading and missing-URL tabs are protected from duplicate removal. Split-view tabs are left untouched.\n\nOpen-tab URLs are processed only inside Firefox when you choose an action. The extension has no analytics, accounts, advertising, remote code, or network requests. It never sends or stores tab URLs or titles."
+    "en-US": "Simple Tab Manager brings order to open tabs from one small toolbar popup.\n\nChoose Organize all tabs to bring matching windows together, remove exact URL duplicates, and sort pinned and unpinned tabs separately by domain. Each tool can also be run on its own.\n\nBy default, pinned tabs stay pinned and tab groups stay together; both can be turned off in Settings. A pinned URL copy always wins over an unpinned copy. Query strings and fragments remain significant, and Firefox container identities stay separate. Loading and missing-URL tabs are protected from duplicate removal. Split-view tabs are left untouched.\n\nOpen-tab URLs are processed only inside Firefox when you choose an action. The extension has no analytics, accounts, advertising, remote code, or network requests. It never sends or stores tab URLs or titles."
   },
   "homepage": {
     "en-US": "https://github.com/dannychan0510/chrome-simple-tab-manager"
@@ -19,9 +19,9 @@
     "en-US": "Bring tabs together, remove exact URL duplicates, and sort pinned and unpinned tabs by domain."
   },
   "version": {
-    "license": "all-rights-reserved",
+    "license": "MIT",
     "release_notes": {
-      "en-US": "Version 2.0.0 is a complete rebuild for current Firefox. It adds one-click organization, separate tab tools, exact URL duplicate handling with pinned-copy priority, Firefox container awareness, light and dark themes, and stronger safeguards for changing tabs and windows."
+      "en-US": "Version 2.0.0 is a complete rebuild for current Firefox. It adds one-click organization, separate tab tools, exact URL duplicate handling with pinned-copy priority, Firefox container awareness, light and dark themes, a settings panel to keep pinned tabs and tab groups intact, and stronger safeguards for changing tabs and windows."
     }
   }
 }
