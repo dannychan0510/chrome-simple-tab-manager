@@ -190,13 +190,26 @@ export function createTabManager(api, options = {}) {
         const batch = (pinned ? available.slice(-BATCH_SIZE) : available.slice(0, BATCH_SIZE));
         await ensureTarget(scope);
         const targetSection = tabs.filter((tab) => tab.windowId === scope.targetWindowId && Boolean(tab.pinned) === pinned).map(({ id }) => id);
-        await moveWithCount(opAdapter, batch, { windowId: scope.targetWindowId, index: pinned ? 0 : -1 }, result, {
+        const expectation = {
           section: pinned ? "pinned" : "unpinned",
           pinnedById: new Map(batch.map((id) => [id, pinned])),
           orderIds: batch,
           anchorIds: targetSection,
           place: pinned ? "before" : "after",
-        });
+        };
+        await moveWithCount(opAdapter, batch, { windowId: scope.targetWindowId, index: pinned ? 0 : -1 }, result, pinned ? null : expectation);
+        // The browser can silently drop a pinned tab's pinned flag, and/or land it out of
+        // order relative to tabs already pinned in the target, as a side effect of a
+        // cross-window move — the same class of thing it does when folding a moved tab
+        // into a neighboring group below. Don't gate the first attempt's success on it
+        // having already gotten this right (that would abort the whole operation before
+        // the rest of the tabs move) — reassert both the flag and the front-of-strip
+        // position explicitly afterward, then re-verify strictly: if the corrected state
+        // is still wrong, that's a real failure, not a recoverable quirk.
+        if (pinned) {
+          await opAdapter.pin(batch);
+          await moveWithCount(opAdapter, batch, { windowId: scope.targetWindowId, index: 0 }, result, expectation);
+        }
         // Appending unpinned tabs at the end can land them right next to a group that
         // was just moved into place (or already sat there), and the browser silently
         // folds a tab dropped next to a group's edge into it. These tabs were never

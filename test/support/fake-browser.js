@@ -30,7 +30,14 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
   const getWindow = (id) => windows.find((window) => window.id === id);
   const getTab = (id) => windows.flatMap(({ tabs }) => tabs).find((tab) => tab.id === id);
   const getGroup = (id) => groups.find((group) => group.id === id);
-  const normalize = () => windows.forEach((window) => window.tabs.forEach((tab, index) => { tab.windowId = window.id; tab.index = index; tab.incognito = window.incognito; }));
+  // Real Chrome always keeps pinned tabs contiguous at the front of a window's tab
+  // strip, even mid-operation, so every mutation that could disturb that (a move, or a
+  // pin/unpin) re-partitions the window rather than trusting whoever called it to have
+  // placed things correctly.
+  const normalize = () => windows.forEach((window) => {
+    window.tabs = window.tabs.filter((tab) => tab.pinned).concat(window.tabs.filter((tab) => !tab.pinned));
+    window.tabs.forEach((tab, index) => { tab.windowId = window.id; tab.index = index; tab.incognito = window.incognito; });
+  });
   const api = {
     calls,
     windows: {
@@ -68,6 +75,10 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
         const destination = getWindow(properties.windowId) || getWindow(moving[0].windowId);
         for (const tab of moving) {
           const source = getWindow(tab.windowId);
+          // Real Chrome can silently drop a tab's pinned flag as a side effect of a
+          // cross-window move under some layouts. Simulated here on demand so tests can
+          // exercise the recovery path without claiming to know the exact real trigger.
+          if (options.unpinsOnCrossWindowMove?.has(tab.id) && tab.windowId !== destination.id) tab.pinned = false;
           source.tabs = source.tabs.filter(({ id }) => id !== tab.id);
         }
         let index = properties.index == null || properties.index < 0 ? destination.tabs.length : properties.index;
@@ -114,6 +125,7 @@ export function createFakeBrowser(inputWindows = [], options = {}) {
           window.tabs.forEach((candidate) => { candidate.active = candidate.id === id; });
         }
         if (typeof properties.pinned === "boolean") tab.pinned = properties.pinned;
+        normalize();
         return { ...tab };
       },
       async group({ tabIds, groupId, createProperties }) {

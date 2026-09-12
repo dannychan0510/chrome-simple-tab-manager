@@ -92,6 +92,20 @@ export function createBrowserAdapter(api, options = {}) {
     return count;
   }
 
+  async function pin(tabIds) {
+    let count = 0;
+    for (const id of tabIds) {
+      if (!api.tabs.update) continue;
+      const tab = await readTab(api, id);
+      if (tab?.pinned) { count += 1; continue; }
+      await api.tabs.update(id, { pinned: true });
+      const updated = await readTab(api, id);
+      if (updated?.pinned) count += 1;
+    }
+    await refresh();
+    return count;
+  }
+
   async function readGroupMeta(groupId) {
     if (!Number.isInteger(groupId) || groupId < 0 || !api.tabGroups?.get) return null;
     try { return await api.tabGroups.get(groupId); } catch { return null; }
@@ -190,5 +204,5 @@ export function createBrowserAdapter(api, options = {}) {
     await storage.set({ [key]: state });
   }
 
-  return { capture, readCaptured, ungroup, unpin, regroupTabs, assignGroup, readGroupMeta, move, remove, activate, readOperationState, writeOperationState };
+  return { capture, readCaptured, ungroup, unpin, pin, regroupTabs, assignGroup, readGroupMeta, move, remove, activate, readOperationState, writeOperationState };
 }

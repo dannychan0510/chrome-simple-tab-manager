@@ -636,3 +636,41 @@ test("organize keeps pinned tabs pinned and groups intact by default", async () 
   assert.notEqual(groupId, -1);
   assert.equal(targetTabs.find(({ id }) => id === 4).groupId, groupId);
 });
+
+test("consolidate re-pins a tab the browser silently unpinned during its move, and still moves the rest in the same run", async () => {
+  const api = createFakeBrowser(
+    [
+      { id: 1, type: "normal", tabs: [{ id: 1, url: "https://target.test/", active: true }] },
+      { id: 2, type: "normal", tabs: [
+        { id: 2, url: "https://pinned.test/", pinned: true },
+        { id: 3, url: "https://a.test/", groupId: 10 },
+        { id: 4, url: "https://b.test/", groupId: 10 },
+        { id: 5, url: "https://rest.test/" },
+      ] },
+    ],
+    { groups: [{ id: 10, title: "Research", color: "blue", windowId: 2 }], unpinsOnCrossWindowMove: new Set([2]) },
+  );
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.equal(result.status, "complete");
+  const targetTabs = api.snapshotWindow(1).tabs;
+  assert.equal(targetTabs.find(({ id }) => id === 2).pinned, true);
+  assert.ok(targetTabs.some(({ id }) => id === 5));
+});
+
+test("consolidate re-pins and repositions an incoming pinned tab that lands after one already pinned in the target", async () => {
+  const api = createFakeBrowser(
+    [
+      { id: 1, type: "normal", tabs: [{ id: 1, url: "https://already-pinned.test/", pinned: true, active: true }] },
+      { id: 2, type: "normal", tabs: [
+        { id: 2, url: "https://incoming-pinned.test/", pinned: true },
+        { id: 3, url: "https://rest.test/" },
+      ] },
+    ],
+    { unpinsOnCrossWindowMove: new Set([2]) },
+  );
+  const result = await createTabManager(api).run("consolidate", 1);
+  assert.equal(result.status, "complete");
+  const targetTabs = api.snapshotWindow(1).tabs;
+  assert.equal(targetTabs.find(({ id }) => id === 2).pinned, true);
+  assert.ok(targetTabs.some(({ id }) => id === 3));
+});
