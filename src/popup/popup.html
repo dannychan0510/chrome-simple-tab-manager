@@ -66,21 +66,27 @@
           <path d="m8 12 2 2 4-4"/>
         </svg>
         <span>Organize all tabs</span>
+        <kbd class="action-shortcut" data-shortcut-for="organize"></kbd>
       </button>
 
       <div class="action-list" aria-label="Individual tab tools">
         <button class="action-row" type="button" data-action="consolidate">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h10a2 2 0 0 1 2 2v8H7a2 2 0 0 1-2-2V7Z"/><path d="M9 5h10v10"/><path d="M10 12h4"/></svg>
-          <span>Bring tabs together</span><span class="row-chevron" aria-hidden="true">›</span>
+          <span>Bring tabs together</span><kbd class="action-shortcut" data-shortcut-for="consolidate"></kbd><span class="row-chevron" aria-hidden="true">›</span>
         </button>
         <button class="action-row" type="button" data-action="sort">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6h12M6 12h8M6 18h4"/><path d="m16 15 3 3 3-3M19 18V6"/></svg>
-          <span>Sort by domain</span><span class="row-chevron" aria-hidden="true">›</span>
+          <span>Sort by domain</span><kbd class="action-shortcut" data-shortcut-for="sort"></kbd><span class="row-chevron" aria-hidden="true">›</span>
         </button>
         <button class="action-row" type="button" data-action="deduplicate">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h10.5a2 2 0 0 1 2 2V17H7a2 2 0 0 1-2-2V7.5Z"/><path d="M8 5h10.5a2 2 0 0 1 2 2v7"/><path d="m9 12 2 2 4-4"/></svg>
-          <span>Remove duplicate URLs</span><span class="row-chevron" aria-hidden="true">›</span>
+          <span>Remove duplicate URLs</span><kbd class="action-shortcut" data-shortcut-for="deduplicate"></kbd><span class="row-chevron" aria-hidden="true">›</span>
         </button>
+      </div>
+
+      <div class="shortcut-settings">
+        <button id="shortcut-settings" class="shortcut-settings-button" type="button">Change shortcuts</button>
+        <p id="shortcut-settings-hint" class="shortcut-settings-hint" hidden></p>
       </div>
 
       <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">

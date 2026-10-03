@@ -75,6 +75,12 @@ button { font: inherit; }
 .action-row:hover svg { color: currentColor; }
 .action-row span:nth-child(2) { flex: 1; }
 .row-chevron { color: var(--muted); font-size: 21px; line-height: 1; }
+.action-shortcut { margin-left: 8px; padding: 0; border: 0; background: transparent; color: var(--muted); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; font-weight: 400; white-space: nowrap; }
+.primary-action .action-shortcut { color: color-mix(in srgb, #fff 78%, transparent); }
+.shortcut-settings { margin-top: 10px; }
+.shortcut-settings-button { padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+.shortcut-settings-button:hover { color: var(--ink); }
+.shortcut-settings-hint { margin: 0; color: var(--muted); font-size: 12px; }
 .settings-panel { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
 .settings-panel[hidden] { display: none; }
 .settings-toggle { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
@@ -123,5 +129,5 @@ button:disabled { cursor: wait; opacity: .55; }
   :root:not([data-theme="light"]) { color-scheme: dark; --canvas: #151A21; --surface: #1E2530; --ink: #F2F5F9; --muted: #9BA8B8; --line: #35404E; --accent: #78A9FF; --accent-pressed: #A5C2FF; --success: #53D6AD; --error: #FF8787; --shadow: 0 14px 32px rgba(0, 0, 0, .24); }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
-@media (forced-colors: active) { .primary-action, .action-row, .theme-button { border: 1px solid ButtonText; } .primary-action { background: ButtonFace; color: ButtonText; } button:focus-visible { outline: 2px solid Highlight; } }
+@media (forced-colors: active) { .primary-action, .action-row, .theme-button, .shortcut-settings-button { border: 1px solid ButtonText; } .primary-action { background: ButtonFace; color: ButtonText; } button:focus-visible { outline: 2px solid Highlight; } }
 @media (min-width: 700px) { body { padding: 0; } }

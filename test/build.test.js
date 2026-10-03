@@ -16,6 +16,19 @@ test("build creates valid Chrome and Firefox packages", async () => {
   assert.equal(chrome.manifest_version, 3);
   assert.equal(chrome.background.service_worker, "background.js");
   assert.deepEqual(chrome.permissions, ["tabs", "tabGroups", "storage"]);
+  for (const manifest of [chrome, firefox]) {
+    assert.deepEqual(Object.keys(manifest.commands).sort(), ["consolidate", "deduplicate", "organize", "sort"]);
+    assert.equal(manifest.commands.organize.suggested_key.default, "Alt+Shift+O");
+    assert.equal(manifest.commands.consolidate.suggested_key.default, "Alt+Shift+B");
+    assert.equal(manifest.commands.sort.suggested_key.default, "Alt+Shift+S");
+    assert.equal(manifest.commands.deduplicate.suggested_key.default, "Alt+Shift+D");
+    assert.equal(manifest.commands.organize.description, "Organize all tabs");
+    assert.equal(manifest.commands.consolidate.description, "Bring tabs together");
+    assert.equal(manifest.commands.sort.description, "Sort by domain");
+    assert.equal(manifest.commands.deduplicate.description, "Remove duplicate URLs");
+    assert.equal(manifest.commands._execute_action, undefined);
+    for (const command of Object.values(manifest.commands)) assert.equal(Object.hasOwn(command, "suggested_key"), true);
+  }
   assert.deepEqual(firefox.background.scripts, ["background.js"]);
   assert.deepEqual(firefox.browser_specific_settings.gecko.data_collection_permissions.required, ["none"]);
   assert.equal(firefox.browser_specific_settings.gecko.id, "{a69d42cb-0283-4e28-9a86-47e4274dc993}");

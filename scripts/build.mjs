@@ -9,6 +9,7 @@ const distRoot = join(root, "dist");
 const sourceFiles = [
   "background.js",
   "browser-adapter.js",
+  "commands.js",
   "tab-manager.js",
   "core/tab-planner.js",
   "core/tab-rules.js",

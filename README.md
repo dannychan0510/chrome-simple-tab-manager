@@ -23,6 +23,14 @@ the popup's settings panel, which restores today's fully-flattened behavior
 of dissolving groups and mixing pinned tabs in with the rest. New tabs opened
 after an action starts are left alone.
 
+Each action has a keyboard shortcut that runs while the browser is focused,
+even when the popup is closed. The suggested keys are Alt+Shift+O to organize,
+Alt+Shift+B to bring tabs together, Alt+Shift+S to sort by domain, and
+Alt+Shift+D to remove duplicate URLs. Chrome allows only four suggested shortcuts, so these four are the suggestions. Rebind them in Chrome at chrome://extensions/shortcuts,
+or in Firefox with Manage Extension Shortcuts. The popup shows the shortcut
+currently assigned to each action. Shortcuts use the same pin and group
+settings as the popup and the same current window.
+
 No browsing data leaves the browser. The extension has no accounts, analytics,
 network requests, content scripts, or host permissions. It requests the
 `tabs`, `tabGroups`, and `storage` permissions. Operation state stores action
