@@ -4,6 +4,24 @@
   "version": "2.0.0",
   "description": "Bring tabs together, remove duplicate URLs, and sort them by domain.",
   "permissions": ["tabs", "tabGroups", "storage"],
+  "commands": {
+    "organize": {
+      "suggested_key": { "default": "Alt+Shift+O" },
+      "description": "Organize all tabs"
+    },
+    "consolidate": {
+      "suggested_key": { "default": "Alt+Shift+B" },
+      "description": "Bring tabs together"
+    },
+    "sort": {
+      "suggested_key": { "default": "Alt+Shift+S" },
+      "description": "Sort by domain"
+    },
+    "deduplicate": {
+      "suggested_key": { "default": "Alt+Shift+D" },
+      "description": "Remove duplicate URLs"
+    }
+  },
   "background": { "scripts": ["background.js"], "type": "module" },
   "action": {
     "default_title": "Simple Tab Manager",

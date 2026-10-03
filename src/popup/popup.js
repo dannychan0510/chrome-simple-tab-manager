@@ -1,3 +1,4 @@
+import { openShortcutSettings } from "../commands.js";
 import { formatOperationResult, nextTheme, operationVisualState, resolveBooleanPreference, resolveTheme } from "./popup-state.js";
 
 const api = globalThis.browser ?? globalThis.chrome;
@@ -9,6 +10,9 @@ const settingsButton = document.querySelector("#settings-button");
 const settingsPanel = document.querySelector("#settings-panel");
 const keepPinsToggle = document.querySelector("#keep-pins-toggle");
 const keepGroupsToggle = document.querySelector("#keep-groups-toggle");
+const shortcutButton = document.querySelector("#shortcut-settings");
+const shortcutHint = document.querySelector("#shortcut-settings-hint");
+const shortcutLabels = [...document.querySelectorAll("[data-shortcut-for]")];
 const media = globalThis.matchMedia?.("(prefers-color-scheme: dark)");
 let preference = "system";
 let keepPins = true;
@@ -84,6 +88,14 @@ async function restoreStatus() {
   }
 }
 
+async function showShortcuts() {
+  if (typeof api.commands?.getAll !== "function") return;
+  const commands = await api.commands.getAll().catch(() => null);
+  if (!commands) return;
+  const shortcuts = new Map(commands.map((command) => [command.name, command.shortcut || ""]));
+  for (const node of shortcutLabels) node.textContent = shortcuts.get(node.dataset.shortcutFor) || "Not set";
+}
+
 async function init() {
   const stored = await storageGet("themePreference").catch(() => ({}));
   preference = ["system", "light", "dark"].includes(stored?.themePreference) ? stored.themePreference : "system";
@@ -95,6 +107,7 @@ async function init() {
   keepGroupsToggle.checked = keepGroups;
   const current = await api.windows.getCurrent({ populate: false });
   targetWindowId = current.id;
+  await showShortcuts();
   await restoreStatus();
 }
 
@@ -118,4 +131,11 @@ keepGroupsToggle.addEventListener("change", async () => {
 });
 media?.addEventListener?.("change", () => { if (preference === "system") applyTheme(); });
 for (const button of actionButtons) button.addEventListener("click", () => runAction(button.dataset.action));
+shortcutButton.addEventListener("click", async () => {
+  const result = await openShortcutSettings(api);
+  if (result.opened) return;
+  shortcutButton.hidden = true;
+  shortcutHint.hidden = false;
+  shortcutHint.textContent = result.instructions;
+});
 init().catch((error) => setStatus(error?.message || String(error), "error"));

@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const html = await readFile(new URL("../src/popup/popup.html", import.meta.url), "utf8");
 const css = await readFile(new URL("../src/popup/popup.css", import.meta.url), "utf8");
+const popupJs = await readFile(new URL("../src/popup/popup.js", import.meta.url), "utf8");
 
 test("popup exposes all four actions with accessible status", () => {
   for (const action of ["organize", "consolidate", "sort", "deduplicate"]) assert.match(html, new RegExp(`data-action=\\"${action}\\"`));
@@ -34,4 +35,15 @@ test("popup exposes a settings panel with pin and group toggles", () => {
   assert.match(html, /Keep pinned tabs pinned/);
   assert.match(html, /Keep tab groups together/);
   assert.match(html, /aria-controls="settings-panel"/);
+});
+
+test("popup shows the current shortcut beside each action", () => {
+  for (const action of ["organize", "consolidate", "sort", "deduplicate"]) assert.match(html, new RegExp(`data-shortcut-for=\"${action}\"`));
+  assert.match(html, /id="shortcut-settings"/);
+  assert.match(html, /id="shortcut-settings-hint"/);
+  assert.match(html, /Change shortcuts/);
+  assert.match(popupJs, /commands\.getAll/);
+  assert.match(popupJs, /openShortcutSettings/);
+  assert.doesNotMatch(popupJs, /keydown|keypress|keyup/);
+  assert.doesNotMatch(popupJs, /commands\.update/);
 });

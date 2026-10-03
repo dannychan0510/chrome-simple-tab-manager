@@ -5,7 +5,7 @@ import sharp from "sharp";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const targets = ["chrome", "firefox"];
-const required = ["background.js", "browser-adapter.js", "tab-manager.js", "manifest.json", "popup/popup.html", "popup/popup.css", "popup/popup.js", "popup/popup-state.js", "core/tab-rules.js", "core/tab-planner.js", "assets/fonts/ibm-plex-sans-latin-400-normal.woff2", "assets/fonts/ibm-plex-sans-latin-600-normal.woff2", "LICENSES/IBM-Plex-Sans.txt", "icons/icon16.png", "icons/icon32.png", "icons/icon48.png", "icons/icon128.png"];
+const required = ["background.js", "browser-adapter.js", "commands.js", "tab-manager.js", "manifest.json", "popup/popup.html", "popup/popup.css", "popup/popup.js", "popup/popup-state.js", "core/tab-rules.js", "core/tab-planner.js", "assets/fonts/ibm-plex-sans-latin-400-normal.woff2", "assets/fonts/ibm-plex-sans-latin-600-normal.woff2", "LICENSES/IBM-Plex-Sans.txt", "icons/icon16.png", "icons/icon32.png", "icons/icon48.png", "icons/icon128.png"];
 const packageVersion = JSON.parse(await readFile(join(root, "package.json"), "utf8")).version;
 const sourceLicense = await readFile(join(root, "LICENSES/IBM-Plex-Sans.txt"), "utf8");
 if (sourceLicense.length < 4_000 || !sourceLicense.includes("SIL OPEN FONT LICENSE Version 1.1")) throw new Error("IBM Plex Sans must include the complete SIL Open Font License");
