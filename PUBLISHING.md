@@ -27,9 +27,9 @@ npm run release:package
 
 The last command creates:
 
-- `artifacts/simple-tab-manager-chrome-v2.0.0.zip`
-- `artifacts/simple-tab-manager-firefox-v2.0.0.zip`
-- `artifacts/simple-tab-manager-source-v2.0.0.zip`
+- `artifacts/simple-tab-manager-chrome-v2.1.0.zip`
+- `artifacts/simple-tab-manager-firefox-v2.1.0.zip`
+- `artifacts/simple-tab-manager-source-v2.1.0.zip`
 - `artifacts/SHA256SUMS.txt`
 
 The Chrome and Firefox archives have `manifest.json` at their root. The source

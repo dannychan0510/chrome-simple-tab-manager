@@ -1,6 +1,6 @@
 # Mozilla reviewer build instructions
 
-Simple Tab Manager 2.0.0 is built with Node.js and npm. Use Node.js 22.x and
+Simple Tab Manager 2.1.0 is built with Node.js and npm. Use Node.js 22.x and
 npm 10.x or newer on macOS or Linux. Network access is needed only for
 `npm ci` to download the exact packages recorded in `package-lock.json`.
 
